@@ -11,6 +11,7 @@
     .tab-btn{padding:.5rem 1rem;border-radius:9999px}
     .tab-active{background:#111827;color:white}
     .tab-inactive{background:#f3f4f6;color:#111827}
+    .hint{font-size:.75rem;color:#6b7280}
   </style>
   <link rel="icon" href="favicon.ico"/>
 </head>
@@ -42,16 +43,15 @@
     const fmtEUR = n => (Number(n)||0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
     const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
 
-    // Storage keys (current)
+    // Storage keys
     const LS_VEH = 'roi-veh-v1';
-    const LS_BOOK = 'roi-bookings-v3'; // includes fuel + commission fix
-    // Older keys (migration)
+    const LS_BOOK = 'roi-bookings-v3';
     const OLD_KEYS_VEH = ['roi-getaround-vehicles-v11','roi-getaround-vehicles-v10','roi-getaround-vehicles-v9','roi-getaround-vehicles-v8'];
     const OLD_KEYS_BOOK = ['roi-bookings-v2','roi-bookings-v1'];
 
     const MONTHS = ['Jan','Fev','Mar','Avr','Mai','Jun','Jul','Aou','Sep','Oct','Nov','Dec'];
 
-    // Utils date
+    // Dates utils
     const toDate = (s)=>{ const [y,m,d] = s.split('-').map(Number); return new Date(Date.UTC(y,m-1,d)); }
     const diffDaysInclusiveUTC = (a,b)=> Math.floor((b - a)/(24*3600*1000)) + 1;
     function splitByMonthUTC(startStr, endStr){
@@ -85,10 +85,10 @@
       const now = new Date();
       const [startMonth, setStartMonth] = useState(now.getMonth()); // 0..11
 
-      // Defaults
+      // Vehicles (defaults updated)
       const clio = {
         id: 'clio-2021', name: 'Clio 5 Limited SCE 65 (2021)', purchasePrice: 10890, dailyPrice: 42,
-        commissionRate: 0.20, daysPerMonth: 15, insuranceMonthly: 54, connectMonthly: 19, parkingMonthly: 0,
+        commissionRate: 0.10, daysPerMonth: 15, insuranceMonthly: 54, connectMonthly: 25, parkingMonthly: 0,
         otherMonthly: 0, maintenanceAnnual: 600, active: true, useSeasonality: true,
         seasonality: [12,12,14,15,16,18,20,19,16,14,13,18]
       };
@@ -133,6 +133,14 @@
 
       const v = vehicles.find(x=>x.id===selected);
 
+      // Commission par plateforme (auto-fill)
+      const PLATFORM_COMMISSION = {
+        getaround: 0.10,
+        turo: 0.25,
+        direct: 0.00,
+        autre: 0.10
+      };
+
       // Planned calc
       const calcPlan = (veh) => {
         const netPerDay = veh.dailyPrice * (1 - veh.commissionRate);
@@ -155,29 +163,46 @@
         return { netPerDay, chart, monthsCount, periodRevenue, periodCosts, periodProfit, monthlyCostsFixed, monthlyMaintenance, breakevenDays };
       };
 
-      // Normalize booking: commission % support + fuel
+      // Normalisation d'une loc (commission & carburant simplifiés)
       function normalizeBooking(b){
         const veh = vehicles.find(x=>x.id===b.vehicleId);
         if(!veh) return null;
-        let commission = (b.commissionRate!=null? Number(b.commissionRate) : Number(veh.commissionRate)) || 0;
-        if (commission > 1) commission = commission / 100;
+
+        // Commission : priorité à la saisie, sinon par plateforme, sinon véhicule
+        let commission = null;
+        if (b.commissionRate!=null && b.commissionRate!=='') {
+          commission = Number(b.commissionRate);
+          if (commission > 1) commission = commission / 100;
+        } else if (b.platform && PLATFORM_COMMISSION[b.platform] != null) {
+          commission = PLATFORM_COMMISSION[b.platform];
+        } else {
+          commission = Number(veh.commissionRate)||0;
+        }
         commission = Math.max(0, Math.min(1, commission));
 
+        // Total calculé automatiquement si non saisi et si prix/jour + dates
         let total = 0;
-        if (b.totalAmount!=null && !isNaN(b.totalAmount)) {
+        if (b.totalAmount!=null && b.totalAmount!=='') {
           total = Number(b.totalAmount);
-        } else if (b.pricePerDay!=null && !isNaN(b.pricePerDay) && b.start && b.end){
+        } else if (b.pricePerDay!=null && b.pricePerDay!=='' && b.start && b.end){
           const days = diffDaysInclusiveUTC(toDate(b.start), toDate(b.end));
           total = Number(b.pricePerDay) * days;
         } else {
-          return null;
+          return null; // pas assez d'info
         }
+
+        // Carburant simplifié : mode + montant => signe auto
+        let fuel = 0;
+        const fuelAmount = Number(b.fuelAmount||0);
+        if (b.fuelMode === 'facture') fuel = +fuelAmount;     // client te paie
+        else if (b.fuelMode === 'rembourse') fuel = -fuelAmount; // tu rembourses
+
         const extra = Number(b.extraFees||0);
-        const fuel  = Number(b.fuel||0);
-        const net = total * (1 - commission) - extra - fuel;
         const segs = splitByMonthUTC(b.start, b.end);
         const totalDays = segs.reduce((s,a)=>s+a.days,0);
-        return { ...b, total, commission, extra, fuel, net, segs, totalDays };
+
+        const net = total * (1 - commission) - extra - fuel;
+        return { ...b, commission, total:Number(total), extra:Number(extra), fuel:Number(fuel), net, segs, totalDays };
       }
 
       function aggregateActualByMonth(vehId){
@@ -229,7 +254,7 @@
       const addVehicle = ()=>{
         const nv = {
           id: (crypto?.randomUUID ? crypto.randomUUID() : 'id-'+Math.random().toString(36).slice(2)),
-          name: 'Nouveau vehicule', purchasePrice: 9000, dailyPrice: 40, commissionRate: 0.20, daysPerMonth: 12,
+          name: 'Nouveau vehicule', purchasePrice: 9000, dailyPrice: 40, commissionRate: 0.10, daysPerMonth: 12,
           insuranceMonthly: 45, connectMonthly: 19, parkingMonthly: 0, otherMonthly: 0, maintenanceAnnual: 500,
           active: true, useSeasonality: false, seasonality: new Array(12).fill(12)
         };
@@ -238,30 +263,51 @@
 
       const [tab, setTab] = useState('dashboard');
 
-      // Booking form
-      const [form, setForm] = useState({ vehicleId: vehicles[0]?.id || '', start:'', end:'', totalAmount:'', pricePerDay:'', platform:'getaround', commissionRate:'', extraFees:'', fuel:'', notes:'' });
+      // Booking form (simplifié)
+      const [form, setForm] = useState({
+        vehicleId: vehicles[0]?.id || '',
+        start:'', end:'',
+        totalAmount:'', pricePerDay:'',
+        platform:'getaround', commissionRate:'', // vide => auto par plateforme
+        extraFees:'', 
+        fuelMode:'aucun', fuelAmount:'', // simplifié
+        notes:''
+      });
+
+      // Pré-remplir commission quand la plateforme change
+      useEffect(()=>{
+        if (form.platform) {
+          const auto = PLATFORM_COMMISSION[form.platform];
+          setForm(f=>({...f, commissionRate: (auto!=null ? (auto*100).toString() : f.commissionRate)}));
+        }
+      }, [form.platform]);
+
+      // Si véhicule sélectionné est supprimé, re-sélectionner un autre
       useEffect(()=>{ if(!form.vehicleId && vehicles.length){ setForm(f=>({...f, vehicleId: vehicles[0].id})); } }, [vehicles]);
 
       function addBooking(){
         if(!form.vehicleId || !form.start || !form.end) { alert('Renseigne véhicule + dates'); return; }
+        // Si total vide mais prix/jour présent, on calculera dans normalizeBooking
         const id = (crypto?.randomUUID ? crypto.randomUUID() : 'bk-'+Math.random().toString(36).slice(2));
         const booking = {
           id,
           vehicleId: form.vehicleId,
           start: form.start,
           end: form.end,
-          totalAmount: form.totalAmount? Number(form.totalAmount) : null,
-          pricePerDay: form.pricePerDay? Number(form.pricePerDay) : null,
+          totalAmount: form.totalAmount !== '' ? Number(form.totalAmount) : null,
+          pricePerDay: form.pricePerDay !== '' ? Number(form.pricePerDay) : null,
           platform: form.platform || 'getaround',
-          commissionRate: form.commissionRate!==''? Number(form.commissionRate) : null,
+          commissionRate: form.commissionRate!==''? Number(form.commissionRate) : null, // % dans le formulaire
           extraFees: form.extraFees!==''? Number(form.extraFees) : 0,
-          fuel: form.fuel!==''? Number(form.fuel) : 0,
+          fuelMode: form.fuelMode || 'aucun',
+          fuelAmount: form.fuelAmount!==''? Number(form.fuelAmount) : 0,
           notes: form.notes || ''
         };
         const nb = normalizeBooking(booking);
-        if(!nb){ alert('Montant total ou prix/jour manquant'); return; }
+        if(!nb){ alert('Indique au moins Montant total ou Prix/jour + dates.'); return; }
         setBookings(prev=> [nb, ...prev]);
-        setForm(f=>({...f, start:'', end:'', totalAmount:'', pricePerDay:'', commissionRate:'', extraFees:'', fuel:'', notes:''}));
+        // Reset partiel
+        setForm(f=>({...f, start:'', end:'', totalAmount:'', pricePerDay:'', extraFees:'', fuelAmount:'', notes:''}));
       }
       function removeBooking(id){ setBookings(prev=> prev.filter(b=> b.id!==id)); }
 
@@ -327,7 +373,6 @@
                 MONTHS.map((m,i)=> React.createElement('option', {key:m, value:String(i)}, m))
               ),
               React.createElement('span', {className:'text-neutral-600'}, '• ', (12-startMonth), ' mois'),
-              // Export / Import
               React.createElement('button', {className:'ml-3 px-3 py-1.5 rounded-xl bg-neutral-900 text-white', onClick:doExport}, 'Exporter JSON'),
               React.createElement('label', {className:'px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 cursor-pointer'},
                 'Importer JSON',
@@ -393,7 +438,8 @@
                     React.createElement(Field, {label:'Stationnement / mois'}, React.createElement(InputNumber, {value:v.parkingMonthly, onChange:val=>update({parkingMonthly:val}), suffix:'€'})),
                     React.createElement(Field, {label:'Autres frais / mois'}, React.createElement(InputNumber, {value:v.otherMonthly, onChange:val=>update({otherMonthly:val}), suffix:'€'}))
                   ),
-                  React.createElement(Field, {label:'Entretien annuel (prevision)'}, React.createElement(InputNumber, {value:v.maintenanceAnnual, onChange:val=>update({maintenanceAnnual:val}), suffix:'€'}))
+                  React.createElement(Field, {label:'Entretien annuel (prevision)'}, React.createElement(InputNumber, {value:v.maintenanceAnnual, onChange:val=>update({maintenanceAnnual:val}), suffix:'€'})),
+                  React.createElement('p', {className:'hint'}, 'Astuce : Getaround ~10 % ; Turo ~25 % (modifiable ci-dessus).')
                 ),
                 // KPI
                 React.createElement('div', {className:'lg:col-span-2 grid sm:grid-cols-2 gap-4'},
@@ -461,22 +507,40 @@
                 React.createElement(Field, {label:'Fin'}, React.createElement('input', {type:'date', className:'border rounded-xl px-3 py-2', value:form.end, onChange:e=>setForm({...form, end:e.target.value})}))
               ),
               React.createElement('div', {className:'grid md:grid-cols-5 gap-4'},
-                React.createElement(Field, {label:'Montant total (€) (par défaut)'}, React.createElement('input', {type:'number', className:'border rounded-xl px-3 py-2', value:form.totalAmount, onChange:e=>setForm({...form, totalAmount:e.target.value})})),
+                React.createElement(Field, {label:'Montant total (€) — si vide, calcule depuis Prix/jour x nb de jours'} , React.createElement('input', {type:'number', className:'border rounded-xl px-3 py-2', value:form.totalAmount, onChange:e=>setForm({...form, totalAmount:e.target.value})})),
                 React.createElement(Field, {label:'Prix/jour (€) (optionnel)'}, React.createElement('input', {type:'number', className:'border rounded-xl px-3 py-2', value:form.pricePerDay, onChange:e=>setForm({...form, pricePerDay:e.target.value})})),
-                React.createElement(Field, {label:'Commission (%) — ex: 10 pour 10%'}, React.createElement('input', {type:'number', className:'border rounded-xl px-3 py-2', value:form.commissionRate, onChange:e=>setForm({...form, commissionRate:e.target.value})})),
-                React.createElement(Field, {label:'Frais/Extras (€)'}, React.createElement('input', {type:'number', className:'border rounded-xl px-3 py-2', value:form.extraFees, onChange:e=>setForm({...form, extraFees:e.target.value})})),
-                React.createElement(Field, {label:'Carburant (±€)'}, React.createElement('input', {type:'number', className:'border rounded-xl px-3 py-2', value:form.fuel, onChange:e=>setForm({...form, fuel:e.target.value})}))
+                React.createElement(Field, {label:'Plateforme'},
+                  React.createElement('select', {className:'border rounded-xl px-3 py-2 w-full md:w-auto', value:form.platform, onChange:e=>setForm({...form, platform:e.target.value})},
+                    ['getaround','turo','direct','autre'].map(p=> React.createElement('option', {key:p, value:p}, p))
+                  )
+                ),
+                React.createElement(Field, {label:'Commission (%)'}, 
+                  React.createElement('input', {type:'number', className:'border rounded-xl px-3 py-2', value:form.commissionRate, onChange:e=>setForm({...form, commissionRate:e.target.value})}),
+                  React.createElement('span', {className:'hint'}, 'Auto : Getaround 10 • Turo 25 • Direct 0 (modifiable)')
+                ),
+                React.createElement(Field, {label:'Frais/Extras (€)'}, React.createElement('input', {type:'number', className:'border rounded-xl px-3 py-2', value:form.extraFees, onChange:e=>setForm({...form, extraFees:e.target.value})}))
               ),
-              React.createElement(Field, {label:'Plateforme'},
-                React.createElement('select', {className:'border rounded-xl px-3 py-2 w-full md:w-auto', value:form.platform, onChange:e=>setForm({...form, platform:e.target.value})},
-                  ['getaround','turo','direct','autre'].map(p=> React.createElement('option', {key:p, value:p}, p))
-                )
+
+              React.createElement('div', {className:'grid md:grid-cols-3 gap-4'},
+                React.createElement(Field, {label:'Carburant — mode'},
+                  React.createElement('select', {className:'border rounded-xl px-3 py-2', value:form.fuelMode, onChange:e=>setForm({...form, fuelMode:e.target.value})},
+                    [
+                      {v:'aucun',t:'Aucun ajustement'},
+                      {v:'facture',t:'Facturé au client (+€ pour toi)'},
+                      {v:'rembourse',t:'Remboursé au client (-€ pour toi)'}
+                    ].map(o=> React.createElement('option',{key:o.v,value:o.v},o.t))
+                  )
+                ),
+                React.createElement(Field, {label:'Carburant — montant (€)'},
+                  React.createElement('input', {type:'number', className:'border rounded-xl px-3 py-2', value:form.fuelAmount, onChange:e=>setForm({...form, fuelAmount:e.target.value})}),
+                  React.createElement('span', {className:'hint'}, 'Le signe est géré automatiquement selon le mode.')
+                ),
+                React.createElement(Field, {label:'Notes'}, React.createElement('input', {type:'text', className:'border rounded-xl px-3 py-2', value:form.notes, onChange:e=>setForm({...form, notes:e.target.value})}))
               ),
-              React.createElement(Field, {label:'Notes'}, React.createElement('input', {type:'text', className:'border rounded-xl px-3 py-2', value:form.notes, onChange:e=>setForm({...form, notes:e.target.value})})),
+
               React.createElement('div', null,
                 React.createElement('button', {className:'px-4 py-2 rounded-xl bg-neutral-900 text-white', onClick:addBooking}, '+ Ajouter')
-              ),
-              React.createElement('p', {className:'text-xs text-neutral-600'}, 'Commission en %: 10 = 10%. Carburant: +3.78 si tu rembourses, -3.78 si tu factures au client.')
+              )
             ),
             React.createElement('section', {className:'bg-white rounded-2xl shadow p-4'},
               React.createElement('div', {className:'mb-3 flex items-center justify-between'},
