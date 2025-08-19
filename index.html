@@ -36,28 +36,39 @@
     const fmtEUR = n => (Number(n)||0).toLocaleString('fr-FR', { style:'currency', currency:'EUR' });
     const clamp = (v,min,max)=> Math.max(min, Math.min(max,v));
 
+    // --------- PÉRIODE FIXE : 14 août 2025 -> 14 août 2026 ----------
+    const PERIOD_START = new Date(Date.UTC(2025,7,14)); // 2025-08-14 UTC
+    const PERIOD_END   = new Date(Date.UTC(2026,7,14)); // exclusif
+    // pour l'arithmétique par jours, on prend un "end inclusif"
+    const PERIOD_END_INCL = new Date(PERIOD_END.getTime() - 24*3600*1000);
+
     // Storage
     const LS_VEH='roi-veh-v1', LS_BOOK='roi-bookings-v3';
     const OLD_KEYS_VEH=['roi-getaround-vehicles-v11','roi-getaround-vehicles-v10','roi-getaround-vehicles-v9','roi-getaround-vehicles-v8'];
     const OLD_KEYS_BOOK=['roi-bookings-v2','roi-bookings-v1'];
 
     const MONTHS=['Jan','Fev','Mar','Avr','Mai','Jun','Jul','Aou','Sep','Oct','Nov','Dec'];
-
-    // Dates
     const toDate = s=>{const [y,m,d]=s.split('-').map(Number);return new Date(Date.UTC(y,m-1,d));}
-    const diffDaysInclusiveUTC=(a,b)=>Math.floor((b-a)/(24*3600*1000))+1;
-    function splitByMonthUTC(startStr,endStr){
-      const start=toDate(startStr), end=toDate(endStr);
-      let cur=new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+    const daysBetweenIncl=(a,b)=>Math.floor((b-a)/(24*3600*1000))+1;
+    const daysInMonthUTC=(y,m)=> new Date(Date.UTC(y,m+1,0)).getUTCDate();
+    const labelMonth=(y,m)=>`${MONTHS[m]} ${y}`;
+
+    // Segments mensuels entre deux dates (avec jours "actifs" ce mois)
+    function monthSegmentsBetween(start,endIncl){
       const out=[];
-      while(cur<=end){
-        const y=cur.getUTCFullYear(), m=cur.getUTCMonth();
-        const nextMonth=new Date(Date.UTC(y,m+1,1));
-        const lastDayThisMonth=new Date(nextMonth-24*3600*1000);
-        const segStart=cur, segEnd=new Date(Math.min(lastDayThisMonth,end));
-        const days=diffDaysInclusiveUTC(segStart,segEnd);
-        out.push({year:y,month:m,days});
-        cur=new Date(Date.UTC(y,m,segEnd.getUTCDate()+1));
+      let y=start.getUTCFullYear(), m=start.getUTCMonth(), d=start.getUTCDate();
+      let cur=new Date(Date.UTC(y,m,d));
+      while(cur<=endIncl){
+        const year=cur.getUTCFullYear(), month=cur.getUTCMonth();
+        const dim=daysInMonthUTC(year,month);
+        const monthStart=new Date(Date.UTC(year,month,1));
+        const monthEnd=new Date(Date.UTC(year,month,dim));
+        const segStart = cur > monthStart ? cur : monthStart;
+        const segEnd   = endIncl < monthEnd ? endIncl : monthEnd;
+        const activeDays = daysBetweenIncl(segStart, segEnd);
+        out.push({year,month,activeDays,daysInMonth:dim,ratio:activeDays/dim,label:labelMonth(year,month)});
+        // next month first day
+        cur = new Date(Date.UTC(year, month+1, 1));
       }
       return out;
     }
@@ -71,15 +82,12 @@
     }
 
     function App(){
-      const now=new Date();
-      const [startMonth,setStartMonth]=useState(now.getMonth());
-
-      // --- Véhicules (commission Clio fixée à 10 % + Connect 25 €) ---
+      // --- Véhicules (commission Clio 10 % + Connect 25 €) ---
       const clio={
         id:'clio-2021', name:'Clio 5 Limited SCE 65 (2021)', purchasePrice:10890, dailyPrice:42,
         commissionRate:0.10, daysPerMonth:15, insuranceMonthly:54, connectMonthly:25, parkingMonthly:0,
         otherMonthly:0, maintenanceAnnual:600, active:true, useSeasonality:true,
-        seasonality:[12,12,14,15,16,18,20,19,16,14,13,18]
+        seasonality:[12,12,14,15,16,18,20,19,16,14,13,18] // Jan..Dec
       };
       const tesla={
         id:'tesla-2022', name:'Tesla Model 3 Propulsion (2022)', purchasePrice:39000, dailyPrice:75,
@@ -113,26 +121,43 @@
 
       const v=vehicles.find(x=>x.id===selected);
 
-      // Commission auto par plateforme (Getaround=10 % fixe)
+      // Commission auto par plateforme
       const PLATFORM_COMMISSION={ getaround:0.10, turo:0.25, direct:0.00, autre:0.10 };
 
-      // Prévisionnel
+      // Prévisionnel proportionnel sur les segments de la période fixe
+      const periodSegments = monthSegmentsBetween(PERIOD_START, PERIOD_END_INCL); // ~12 segments
+
       const calcPlan=(veh)=>{
         const netPerDay=veh.dailyPrice*(1-veh.commissionRate);
-        const daysByMonth=(veh.useSeasonality && Array.isArray(veh.seasonality) && veh.seasonality.length===12) ? veh.seasonality : new Array(12).fill(veh.daysPerMonth);
-        const periodMonths=MONTHS.map((m,i)=>({m,d:daysByMonth[i],i})).slice(startMonth);
-        const monthlyCostsFixed=veh.insuranceMonthly+veh.connectMonthly+veh.parkingMonthly+veh.otherMonthly;
-        const monthlyMaintenance=veh.maintenanceAnnual/12;
-        let cum=0;
-        const chart=periodMonths.map(({m,d,i})=>{
-          const rev=netPerDay*d, cost=monthlyCostsFixed+monthlyMaintenance, prof=rev-cost; cum+=prof;
-          return {mois:m,idx:i,Revenu:Math.round(rev),Couts:Math.round(cost),Profit:Math.round(prof),Cumul:Math.round(cum),Jours:d};
+        const monthlyFixed = veh.insuranceMonthly + veh.connectMonthly + veh.parkingMonthly + veh.otherMonthly;
+        const monthlyMaint = veh.maintenanceAnnual/12;
+
+        const rows = periodSegments.map(seg=>{
+          const idx=seg.month; // 0..11
+          // base jours loués du mois (seasonality ou valeur fixe)
+          const baseDays = (veh.useSeasonality && Array.isArray(veh.seasonality) && veh.seasonality.length===12)
+            ? Number(veh.seasonality[idx]||0)
+            : Number(veh.daysPerMonth||0);
+          // on proportionne au nombre de jours "actifs" ce mois (ex : août 2025 = du 14 au 31)
+          const effDays = Math.round(baseDays * seg.ratio);
+          const rev = netPerDay * effDays;
+          const costs = (monthlyFixed + monthlyMaint) * seg.ratio; // coûts mensualisés proratisés
+          const prof = rev - costs;
+          return { mois: seg.label, idx: idx, Revenu: Math.round(rev), Couts: Math.round(costs), Profit: Math.round(prof) };
         });
-        const periodRevenue=chart.reduce((s,r)=>s+r.Revenu,0);
-        const periodCosts=chart.reduce((s,r)=>s+r.Couts,0);
-        const periodProfit=periodRevenue-periodCosts;
-        const breakevenDays=netPerDay>0?(monthlyCostsFixed+monthlyMaintenance)/netPerDay:0;
-        return {netPerDay,chart,periodRevenue,periodCosts,periodProfit,monthlyCostsFixed,monthlyMaintenance,breakevenDays};
+
+        // cumul
+        let cum=0;
+        rows.forEach(r=>{ cum+=r.Profit; r.Cumul=Math.round(cum); });
+
+        const periodRevenue = rows.reduce((s,r)=>s+r.Revenu,0);
+        const periodCosts   = rows.reduce((s,r)=>s+r.Couts,0);
+        const periodProfit  = periodRevenue - periodCosts;
+
+        // seuil de rentabilité mensuel moyen (sur un mois "plein")
+        const breakevenDays = netPerDay>0 ? (monthlyFixed + monthlyMaint) / netPerDay : 0;
+
+        return { netPerDay, chart: rows, periodRevenue, periodCosts, periodProfit, breakevenDays };
       };
 
       // Normalisation d'une location (commission auto + carburant simplifié)
@@ -148,7 +173,7 @@
         let total=0;
         if(b.totalAmount!=null && b.totalAmount!==''){ total=Number(b.totalAmount); }
         else if(b.pricePerDay!=null && b.pricePerDay!=='' && b.start && b.end){
-          const days=diffDaysInclusiveUTC(toDate(b.start),toDate(b.end));
+          const days=daysBetweenIncl(toDate(b.start),toDate(b.end));
           total=Number(b.pricePerDay)*days;
         } else { return null; }
 
@@ -158,34 +183,70 @@
         else if(b.fuelMode==='rembourse') fuel=-fuelAmount;    // tu rembourses
 
         const extra=Number(b.extraFees||0);
-        const segs=splitByMonthUTC(b.start,b.end);
-        const totalDays=segs.reduce((s,a)=>s+a.days,0);
+        const start=toDate(b.start), end=toDate(b.end);
+        const totalDays=daysBetweenIncl(start,end);
         const net=total*(1-commission)-extra-fuel;
 
-        return {...b, commission, total:Number(total), extra:Number(extra), fuel:Number(fuel), net, segs, totalDays};
+        return {...b, commission, total:Number(total), extra:Number(extra), fuel:Number(fuel), net, start, end, totalDays};
       }
 
-      function aggregateActualByMonth(vehId){
-        const monthMap=new Map();
+      // Somme des réels pour un véhicule, mais UNIQUEMENT la part dans la période fixe
+      function aggregateActualInPeriod(vehId){
+        let sumByMonth = new Map(); // idx mois -> €
         bookings.filter(b=>b.vehicleId===vehId).forEach(b=>{
           const nb=normalizeBooking(b); if(!nb) return;
-          nb.segs.forEach(seg=>{
-            const idx=seg.month, share=nb.totalDays>0?(seg.days/nb.totalDays):0, partNet=nb.net*share;
-            monthMap.set(idx,(monthMap.get(idx)||0)+partNet);
+          // recadrer l'intervalle de la loc sur la période
+          const s = nb.start > PERIOD_START ? nb.start : PERIOD_START;
+          const e = nb.end   < PERIOD_END_INCL ? nb.end   : PERIOD_END_INCL;
+          if (s > e) return; // hors période
+          const overlapDays = daysBetweenIncl(s,e);
+          const prorata = overlapDays / nb.totalDays;
+          const netOverlap = nb.net * prorata;
+
+          // répartir par mois sur l'intervalle recadré
+          monthSegmentsBetween(s,e).forEach(seg=>{
+            const part = netOverlap * (seg.activeDays / overlapDays);
+            const prev = sumByMonth.get(seg.month) || 0;
+            sumByMonth.set(seg.month, prev + part);
           });
         });
-        return monthMap;
+        return sumByMonth;
       }
 
       function compareVehicle(veh){
-        const plan=calcPlan(veh);
-        const actualMap=aggregateActualByMonth(veh.id);
-        const rows=plan.chart.map(r=>{
-          const act=actualMap.get(r.idx)||0;
-          return {mois:r.mois,Prev:r.Revenu,Reel:Math.round(act),Ecart:Math.round(act-r.Revenu),Couts:r.Couts,ProfitPrev:r.Profit,ProfitReel:Math.round(act-r.Couts)};
+        const plan = calcPlan(veh);
+        const actualMap = aggregateActualInPeriod(veh.id);
+
+        // On se base sur les mêmes segments "période"
+        const rows = periodSegments.map(seg=>{
+          const act = actualMap.get(seg.month) || 0;
+          const idx = seg.month;
+          const rPlan = plan.chart.find(x=>x.idx===idx);
+          const prevRev = rPlan ? rPlan.Revenu : 0;
+          const prevCost= rPlan ? rPlan.Couts  : 0;
+          return {
+            mois: seg.label,
+            Prev: prevRev,
+            Reel: Math.round(act),
+            Ecart: Math.round(act - prevRev),
+            Couts: prevCost,
+            ProfitPrev: rPlan ? rPlan.Profit : 0,
+            ProfitReel: Math.round(act - prevCost)
+          };
         });
-        const sum=k=>rows.reduce((s,a)=>s+(Number(a[k])||0),0);
-        return {rows,kpis:{prevRev:sum('Prev'),actRev:sum('Reel'),prevProfit:sum('ProfitPrev'),actProfit:sum('ProfitReel'),diffRev:sum('Reel')-sum('Prev'),diffProfit:sum('ProfitReel')-sum('ProfitPrev')}};
+
+        const sum = k => rows.reduce((s,a)=> s + (Number(a[k])||0), 0);
+        return {
+          rows,
+          kpis: {
+            prevRev: sum('Prev'),
+            actRev: sum('Reel'),
+            prevProfit: sum('ProfitPrev'),
+            actProfit: sum('ProfitReel'),
+            diffRev: sum('Reel') - sum('Prev'),
+            diffProfit: sum('ProfitReel') - sum('ProfitPrev'),
+          }
+        };
       }
 
       const update=patch=>{ if(!v) return; setVehicles(prev=>prev.map(it=>it.id===v.id?({...it,...patch}):it)); };
@@ -197,7 +258,7 @@
       const [form,setForm]=useState({
         vehicleId:vehicles[0]?.id||'', start:'', end:'',
         totalAmount:'', pricePerDay:'',
-        platform:'getaround', // => 10% auto
+        platform:'getaround',
         extraFees:'', fuelMode:'aucun', fuelAmount:'', notes:''
       });
       useEffect(()=>{ if(!form.vehicleId && vehicles.length){ setForm(f=>({...f,vehicleId:vehicles[0].id})); } },[vehicles]);
@@ -222,27 +283,38 @@
       }
       function removeBooking(id){ setBookings(prev=>prev.filter(b=>b.id!==id)); }
 
-      // Fleet
+      // Fleet (prévu vs réel) sur la période fixe
       const fleet=useMemo(()=>{
         const actives=vehicles.filter(v=>v.active);
-        const planRows=actives.map(calcPlan);
-        const revPlan=planRows.reduce((s,r)=>s+r.periodRevenue,0);
-        const costPlan=planRows.reduce((s,r)=>s+r.periodCosts,0);
+        const plans=actives.map(calcPlan);
+        const revPlan=plans.reduce((s,r)=>s+r.periodRevenue,0);
+        const costPlan=plans.reduce((s,r)=>s+r.periodCosts,0);
         const profitPlan=revPlan-costPlan;
+
         let revActual=0;
         actives.forEach(veh=>{
-          const map=aggregateActualByMonth(veh.id);
-          for(let i=startMonth;i<12;i++){ revActual+=(map.get(i)||0); }
+          const map=aggregateActualInPeriod(veh.id);
+          // somme sur tous les mois présents dans la période
+          periodSegments.forEach(seg=>{ revActual += (map.get(seg.month)||0); });
         });
-        const costActual=costPlan;
+        const costActual=costPlan; // coûts prévus ~ coûts réels (hors suivi fin)
         const profitActual=revActual-costActual;
+
         const invested=actives.reduce((s,v)=>s+v.purchasePrice,0);
         const roiPlan=invested?(profitPlan/invested):0;
         const roiActual=invested?(profitActual/invested):0;
-        return {revPlan,costPlan,profitPlan,revActual,costActual,profitActual,roiPlan,roiActual,activeCount:actives.length,totalCount:vehicles.length};
-      },[vehicles,bookings,startMonth]);
 
-      function doExport(){ download('roi-data.json', JSON.stringify({exportedAt:new Date().toISOString(),startMonth,vehicles,bookings},null,2)); }
+        return {revPlan,costPlan,profitPlan,revActual,costActual,profitActual,roiPlan,roiActual,activeCount:actives.length,totalCount:vehicles.length};
+      },[vehicles,bookings]);
+
+      function doExport(){ 
+        download('roi-data.json', JSON.stringify({
+          exportedAt:new Date().toISOString(),
+          periodStart: PERIOD_START.toISOString(),
+          periodEnd:   PERIOD_END.toISOString(),
+          vehicles, bookings
+        },null,2));
+      }
       function doImport(file){
         const r=new FileReader();
         r.onload=e=>{
@@ -250,7 +322,6 @@
             const data=JSON.parse(e.target.result);
             if(Array.isArray(data.vehicles)&&Array.isArray(data.bookings)){
               setVehicles(data.vehicles); setBookings(data.bookings);
-              if(typeof data.startMonth==='number') setStartMonth(Math.max(0,Math.min(11,data.startMonth)));
               alert('Import réussi ✅');
             }else alert('Fichier invalide.');
           }catch{ alert('Impossible de lire ce JSON.'); }
@@ -258,16 +329,20 @@
         r.readAsText(file);
       }
 
+      const periodLabel = (()=> {
+        const d1 = PERIOD_START.toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+        const d2 = new Date(PERIOD_END.getTime()-1).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+        return `${d1} → ${d2} (12 mois)`;
+      })();
+
       return React.createElement('div',{className:'min-h-screen w-full'},
         React.createElement('header',{className:'sticky top-0 z-10 bg-white/80 backdrop-blur border-b'},
           React.createElement('div',{className:'max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap'},
-            React.createElement('h1',{className:'text-xl sm:text-2xl font-bold'},'Tableau de bord rentabilite — Flotte'),
+            React.createElement('div', null,
+              React.createElement('h1',{className:'text-xl sm:text-2xl font-bold'},'Tableau de bord rentabilite — Flotte'),
+              React.createElement('div',{className:'text-sm text-neutral-600'}, periodLabel)
+            ),
             React.createElement('div',{className:'flex items-center gap-2 text-sm'},
-              React.createElement('label',{className:'font-medium'},'Calcul à partir de :'),
-              React.createElement('select',{className:'border rounded-lg px-2 py-1',value:String(startMonth),onChange:e=>setStartMonth(Number(e.target.value))},
-                MONTHS.map((m,i)=>React.createElement('option',{key:m,value:String(i)},m))
-              ),
-              React.createElement('span',{className:'text-neutral-600'},'• ',(12-startMonth),' mois'),
               React.createElement('button',{className:'ml-3 px-3 py-1.5 rounded-xl bg-neutral-900 text-white',onClick:doExport},'Exporter JSON'),
               React.createElement('label',{className:'px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 cursor-pointer'},'Importer JSON',
                 React.createElement('input',{type:'file',accept:'application/json',className:'hidden',onChange:e=>e.target.files[0]&&doImport(e.target.files[0])})
@@ -298,7 +373,7 @@
                 React.createElement('button',{className:'ml-auto px-3 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200',onClick:()=>toggleActive(v.id)},v.active?'Suspendre':'Reprendre')
               ),
               React.createElement('div',{className:'grid lg:grid-cols-3 gap-6'},
-                // Panneau édition (commission affichée, non éditable)
+                // Panneau édition
                 React.createElement('div',{className:'lg:col-span-1 grid gap-4'},
                   React.createElement(Field,{label:'Nom du vehicule'},React.createElement('input',{className:'w-full border rounded-xl px-3 py-2',value:v.name,onChange:e=>update({name:e.target.value})})),
                   React.createElement('div',{className:'grid grid-cols-2 gap-4'},
@@ -333,14 +408,14 @@
                     React.createElement(Field,{label:'Autres frais / mois'},React.createElement(InputNumber,{value:v.otherMonthly,onChange:val=>update({otherMonthly:val}),suffix:'€'}))
                   ),
                   React.createElement(Field,{label:'Entretien annuel (prevision)'},React.createElement(InputNumber,{value:v.maintenanceAnnual,onChange:val=>update({maintenanceAnnual:val}),suffix:'€'})),
-                  React.createElement('p',{className:'hint'},'La commission Getaround est fixée à 10 % (automatique).')
+                  React.createElement('p',{className:'hint'},'Période fixe : 14 août 2025 → 14 août 2026. Les mois partiels sont proratisés.')
                 ),
                 // KPI
                 React.createElement('div',{className:'lg:col-span-2 grid sm:grid-cols-2 gap-4'},
                   React.createElement(Card,{title:'Revenu période (prévu)'},fmtEUR(c.periodRevenue)),
                   React.createElement(Card,{title:'Coûts période (prévu)'},fmtEUR(c.periodCosts)),
                   React.createElement(Card,{title:'Profit période (prévu)'},React.createElement('span',{className:c.periodProfit>=0?'text-emerald-600':'text-rose-600'},fmtEUR(c.periodProfit))),
-                  React.createElement(Card,{title:'Seuil rentabilité (j/mois)'},c.breakevenDays.toFixed(1))
+                  React.createElement(Card,{title:'Seuil rentabilité (j/mois plein)'},c.breakevenDays.toFixed(1))
                 ),
                 React.createElement('div',{className:'lg:col-span-3 grid lg:grid-cols-2 gap-6'},
                   React.createElement('div',{className:'bg-white rounded-2xl shadow p-4'},
@@ -408,7 +483,7 @@
                   React.createElement('span',{className:'hint'},'Commission auto : Getaround 10 % • Turo 25 % • Direct 0 %')
                 ),
                 React.createElement(Field,{label:'Frais/Extras (€)'},React.createElement('input',{type:'number',className:'border rounded-xl px-3 py-2',value:form.extraFees,onChange:e=>setForm({...form,extraFees:e.target.value})})),
-                React.createElement('div',null) // espace
+                React.createElement('div',null)
               ),
               React.createElement('div',{className:'grid md:grid-cols-3 gap-4'},
                 React.createElement(Field,{label:'Carburant — mode'},
