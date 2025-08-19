@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Tableau de bord rentabilité — Flotte Getaround/Turo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html,body,#root{height:100%}
+    .mono{font-variant-numeric: tabular-nums}
+    .tab-btn{padding:.5rem 1rem;border-radius:9999px}
+    .tab-active{background:#111827;color:white}
+    .tab-inactive{background:#f3f4f6;color:#111827}
+  </style>
+  <link rel="icon" href="favicon.ico"/>
+</head>
+<body class="bg-neutral-50 text-neutral-900">
+  <div id="root"></div>
+
+  <!-- React & deps (UMD, production) -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+
+  <!-- Recharts -->
+  <script src="https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/Recharts.min.js"></script>
+  <script>
+    if (!window.Recharts) {
+      var s = document.createElement('script');
+      s.src = 'https://unpkg.com/recharts@2.12.7/umd/Recharts.min.js';
+      document.head.appendChild(s);
+    }
+  </script>
+
+  <script>
+  function startApp(){
+    if(!window.React || !window.ReactDOM || !window.Recharts || !window.PropTypes){
+      return setTimeout(startApp, 50);
+    }
+    const { useState, useMemo, useEffect } = React;
+    const { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } = Recharts;
+    const fmtEUR = n => (Number(n)||0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+    const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
+
+    // Storage keys (current)
+    const LS_VEH = 'roi-veh-v1';
+    const LS_BOOK = 'roi-bookings-v3'; // includes fuel + commission fix
+    // Older keys (migration)
+    const OLD_KEYS_VEH = ['roi-getaround-vehicles-v11','roi-getaround-vehicles-v10','roi-getaround-vehicles-v9','roi-getaround-vehicles-v8'];
+    const OLD_KEYS_BOOK = ['roi-bookings-v2','roi-bookings-v1'];
+
+    const MONTHS = ['Jan','Fev','Mar','Avr','Mai','Jun','Jul','Aou','Sep','Oct','Nov','Dec'];
+
+    // Utils date
+    const toDate = (s)=>{ const [y,m,d] = s.split('-').map(Number); return new Date(Date.UTC(y,m-1,d)); }
+    const diffDaysInclusiveUTC = (a,b)=> Math.floor((b - a)/(24*3600*1000)) + 1;
+    function splitByMonthUTC(startStr, endStr){
+      const start = toDate(startStr), end = toDate(endStr);
+      let cur = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+      let out = [];
+      while (cur <= end){
+        const y = cur.getUTCFullYear(), m = cur.getUTCMonth();
+        const nextMonth = new Date(Date.UTC(y, m+1, 1));
+        const lastDayThisMonth = new Date(nextMonth - 24*3600*1000);
+        const segStart = cur;
+        const segEnd = new Date(Math.min(lastDayThisMonth, end));
+        const days = diffDaysInclusiveUTC(segStart, segEnd);
+        out.push({ year:y, month:m, days });
+        cur = new Date(Date.UTC(y, m, segEnd.getUTCDate()+1));
+      }
+      return out;
+    }
+
+    // Export / Import helpers
+    function download(filename, text) {
+      const blob = new Blob([text], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+    }
+
+    function App(){
+      const now = new Date();
+      const [startMonth, setStartMonth] = useState(now.getMonth()); // 0..11
+
+      // Defaults
+      const clio = {
+        id: 'clio-2021', name: 'Clio 5 Limited SCE 65 (2021)', purchasePrice: 10890, dailyPrice: 42,
+        commissionRate: 0.20, daysPerMonth: 15, insuranceMonthly: 54, connectMonthly: 19, parkingMonthly: 0,
+        otherMonthly: 0, maintenanceAnnual: 600, active: true, useSeasonality: true,
+        seasonality: [12,12,14,15,16,18,20,19,16,14,13,18]
+      };
+      const tesla = {
+        id: 'tesla-2022', name: 'Tesla Model 3 Propulsion (2022)', purchasePrice: 39000, dailyPrice: 75,
+        commissionRate: 0.275, daysPerMonth: 10, insuranceMonthly: 115, connectMonthly: 0, parkingMonthly: 0,
+        otherMonthly: 375, maintenanceAnnual: 500, active: true, useSeasonality: false,
+        seasonality: new Array(12).fill(10)
+      };
+
+      // Load vehicles with migration
+      const [vehicles, setVehicles] = useState(()=>{
+        try{
+          const raw = localStorage.getItem(LS_VEH);
+          if(raw){ return JSON.parse(raw); }
+          for(const k of OLD_KEYS_VEH){
+            const r = localStorage.getItem(k);
+            if(r){ return JSON.parse(r); }
+          }
+        }catch(e){}
+        return [clio, tesla];
+      });
+      const [selected, setSelected] = useState(vehicles[0]?.id || '');
+
+      // Bookings with migration
+      const [bookings, setBookings] = useState(()=>{
+        try{
+          const raw = localStorage.getItem(LS_BOOK);
+          if(raw){ return JSON.parse(raw); }
+          for(const k of OLD_KEYS_BOOK){
+            const r = localStorage.getItem(k);
+            if(r){ return JSON.parse(r); }
+          }
+        }catch(e){}
+        return [];
+      });
+
+      // Persist
+      useEffect(()=>{ localStorage.setItem(LS_VEH, JSON.stringify(vehicles)); }, [vehicles]);
+      useEffect(()=>{ localStorage.setItem(LS_BOOK, JSON.stringify(bookings)); }, [bookings]);
+      useEffect(()=>{ if(!vehicles.find(v=>v.id===selected) && vehicles.length){ setSelected(vehicles[0].id); } }, [vehicles, selected]);
+
+      const v = vehicles.find(x=>x.id===selected);
+
+      // Planned calc
+      const calcPlan = (veh) => {
+        const netPerDay = veh.dailyPrice * (1 - veh.commissionRate);
+        const daysByMonth = (veh.useSeasonality && Array.isArray(veh.seasonality) && veh.seasonality.length===12) ? veh.seasonality : new Array(12).fill(veh.daysPerMonth);
+        const periodMonths = MONTHS.map((m,i)=>({m, d: daysByMonth[i], i})).slice(startMonth);
+        const monthsCount = periodMonths.length;
+        const monthlyCostsFixed = veh.insuranceMonthly + veh.connectMonthly + veh.parkingMonthly + veh.otherMonthly;
+        const monthlyMaintenance = veh.maintenanceAnnual / 12;
+        let cum = 0;
+        const chart = periodMonths.map(({m, d, i})=>{
+          const rev = netPerDay * d;
+          const cost = monthlyCostsFixed + monthlyMaintenance;
+          const prof = rev - cost; cum += prof;
+          return { mois:m, idx:i, Revenu: Math.round(rev), Couts: Math.round(cost), Profit: Math.round(prof), Cumul: Math.round(cum), Jours: d };
+        });
+        const periodRevenue = chart.reduce((s,r)=>s+r.Revenu,0);
+        const periodCosts   = chart.reduce((s,r)=>s+r.Couts,0);
+        const periodProfit  = periodRevenue - periodCosts;
+        const breakevenDays = netPerDay>0 ? (monthlyCostsFixed + monthlyMaintenance) / netPerDay : 0;
+        return { netPerDay, chart, monthsCount, periodRevenue, periodCosts, periodProfit, monthlyCostsFixed, monthlyMaintenance, breakevenDays };
+      };
+
+      // Normalize booking: commission % support + fuel
+      function normalizeBooking(b){
+        const veh = vehicles.find(x=>x.id===b.vehicleId);
+        if(!veh) return null;
+        let commission = (b.commissionRate!=null? Number(b.commissionRate) : Number(veh.commissionRate)) || 0;
+        if (commission > 1) commission = commission / 100;
+        commission = Math.max(0, Math.min(1, commission));
+
+        let total = 0;
+        if (b.totalAmount!=null && !isNaN(b.totalAmount)) {
+          total = Number(b.totalAmount);
+        } else if (b.pricePerDay!=null && !isNaN(b.pricePerDay) && b.start && b.end){
+          const days = diffDaysInclusiveUTC(toDate(b.start), toDate(b.end));
+          total = Number(b.pricePerDay) * days;
+        } else {
+          return null;
+        }
+        const extra = Number(b.extraFees||0);
+        const fuel  = Number(b.fuel||0);
+        const net = total * (1 - commission) - extra - fuel;
+        const segs = splitByMonthUTC(b.start, b.end);
+        const totalDays = segs.reduce((s,a)=>s+a.days,0);
+        return { ...b, total, commission, extra, fuel, net, segs, totalDays };
+      }
+
+      function aggregateActualByMonth(vehId){
+        const monthMap = new Map();
+        bookings.filter(b=>b.vehicleId===vehId).forEach(b=>{
+          const nb = normalizeBooking(b); if(!nb) return;
+          nb.segs.forEach(seg=>{
+            const idx = seg.month;
+            const share = nb.totalDays>0 ? (seg.days/nb.totalDays) : 0;
+            const partNet = nb.net * share;
+            const prev = monthMap.get(idx) || 0;
+            monthMap.set(idx, prev + partNet);
+          });
+        });
+        return monthMap;
+      }
+
+      function compareVehicle(veh){
+        const plan = calcPlan(veh);
+        const actualMap = aggregateActualByMonth(veh.id);
+        const rows = plan.chart.map(r=>{
+          const act = actualMap.get(r.idx)||0;
+          return {
+            mois: r.mois,
+            Prev: r.Revenu,
+            Reel: Math.round(act),
+            Ecart: Math.round((act - r.Revenu)),
+            Couts: r.Couts,
+            ProfitPrev: r.Profit,
+            ProfitReel: Math.round(act - r.Couts)
+          };
+        });
+        const sum = (k)=> rows.reduce((s,a)=> s + (Number(a[k])||0), 0);
+        return {
+          rows,
+          kpis: {
+            prevRev: sum('Prev'),
+            actRev: sum('Reel'),
+            prevProfit: sum('ProfitPrev'),
+            actProfit: sum('ProfitReel'),
+            diffRev: sum('Reel') - sum('Prev'),
+            diffProfit: sum('ProfitReel') - sum('ProfitPrev'),
+          }
+        };
+      }
+
+      const update = (patch)=>{ if(!v) return; setVehicles(prev=> prev.map(item=> item.id===v.id ? ({...item, ...patch}) : item)); };
+      const toggleActive = (id)=> setVehicles(prev=> prev.map(item=> item.id===id ? ({...item, active: !item.active}) : item));
+      const addVehicle = ()=>{
+        const nv = {
+          id: (crypto?.randomUUID ? crypto.randomUUID() : 'id-'+Math.random().toString(36).slice(2)),
+          name: 'Nouveau vehicule', purchasePrice: 9000, dailyPrice: 40, commissionRate: 0.20, daysPerMonth: 12,
+          insuranceMonthly: 45, connectMonthly: 19, parkingMonthly: 0, otherMonthly: 0, maintenanceAnnual: 500,
+          active: true, useSeasonality: false, seasonality: new Array(12).fill(12)
+        };
+        setVehicles(vs=>[...vs, nv]); setSelected(nv.id);
+      };
+
+      const [tab, setTab] = useState('dashboard');
+
+      // Booking form
+      const [form, setForm] = useState({ vehicleId: vehicles[0]?.id || '', start:'', end:'', totalAmount:'', pricePerDay:'', platform:'getaround', commissionRate:'', extraFees:'', fuel:'', notes:'' });
+      useEffect(()=>{ if(!form.vehicleId && vehicles.length){ setForm(f=>({...f, vehicleId: vehicles[0].id})); } }, [vehicles]);
+
+      function addBooking(){
+        if(!form.vehicleId || !form.start || !form.end) { alert('Renseigne véhicule + dates'); return; }
+        const id = (crypto?.randomUUID ? crypto.randomUUID() : 'bk-'+Math.random().toString(36).slice(2));
+        const booking = {
+          id,
+          vehicleId: form.vehicleId,
+          start: form.start,
+          end: form.end,
+          totalAmount: form.totalAmount? Number(form.totalAmount) : null,
+          pricePerDay: form.pricePerDay? Number(form.pricePerDay) : null,
+          platform: form.platform || 'getaround',
+          commissionRate: form.commissionRate!==''? Number(form.commissionRate) : null,
+          extraFees: form.extraFees!==''? Number(form.extraFees) : 0,
+          fuel: form.fuel!==''? Number(form.fuel) : 0,
+          notes: form.notes || ''
+        };
+        const nb = normalizeBooking(booking);
+        if(!nb){ alert('Montant total ou prix/jour manquant'); return; }
+        setBookings(prev=> [nb, ...prev]);
+        setForm(f=>({...f, start:'', end:'', totalAmount:'', pricePerDay:'', commissionRate:'', extraFees:'', fuel:'', notes:''}));
+      }
+      function removeBooking(id){ setBookings(prev=> prev.filter(b=> b.id!==id)); }
+
+      // Fleet aggregates
+      const fleet = useMemo(()=>{
+        const actives = vehicles.filter(v=>v.active);
+        const planRows = actives.map(calcPlan);
+        const revPlan = planRows.reduce((s,r)=> s + r.periodRevenue, 0);
+        const costPlan= planRows.reduce((s,r)=> s + r.periodCosts, 0);
+        const profitPlan = revPlan - costPlan;
+        let revActual = 0;
+        actives.forEach(veh=>{
+          const map = aggregateActualByMonth(veh.id);
+          for(let i=startMonth;i<12;i++){ revActual += (map.get(i)||0); }
+        });
+        const costActual = costPlan;
+        const profitActual = revActual - costActual;
+        const invested = actives.reduce((s,v)=>s+v.purchasePrice,0);
+        const roiPlan = invested? (profitPlan/invested) : 0;
+        const roiActual = invested? (profitActual/invested) : 0;
+
+        return { revPlan, costPlan, profitPlan, revActual, costActual, profitActual, roiPlan, roiActual, activeCount: actives.length, totalCount: vehicles.length };
+      }, [vehicles, bookings, startMonth]);
+
+      // Export JSON (vehicles + bookings)
+      function doExport(){
+        const payload = {
+          exportedAt: new Date().toISOString(),
+          startMonth,
+          vehicles,
+          bookings
+        };
+        download('roi-data.json', JSON.stringify(payload, null, 2));
+      }
+      // Import JSON
+      function doImport(file){
+        const reader = new FileReader();
+        reader.onload = (e)=>{
+          try{
+            const data = JSON.parse(e.target.result);
+            if(Array.isArray(data.vehicles) && Array.isArray(data.bookings)){
+              setVehicles(data.vehicles);
+              setBookings(data.bookings);
+              if(typeof data.startMonth === 'number') setStartMonth(Math.max(0, Math.min(11, data.startMonth)));
+              alert('Import réussi ✅');
+            }else{
+              alert('Fichier invalide.');
+            }
+          }catch(err){
+            alert('Impossible de lire ce fichier JSON.');
+          }
+        };
+        reader.readAsText(file);
+      }
+
+      return React.createElement('div', {className:'min-h-screen w-full'},
+        React.createElement('header', {className:'sticky top-0 z-10 bg-white/80 backdrop-blur border-b'},
+          React.createElement('div', {className:'max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap'},
+            React.createElement('h1', {className:'text-xl sm:text-2xl font-bold'}, 'Tableau de bord rentabilite — Flotte'),
+            React.createElement('div', {className:'flex items-center gap-2 text-sm'},
+              React.createElement('label', {className:'font-medium'}, 'Calcul à partir de :'),
+              React.createElement('select', {className:'border rounded-lg px-2 py-1', value:String(startMonth), onChange:e=>setStartMonth(Number(e.target.value))},
+                MONTHS.map((m,i)=> React.createElement('option', {key:m, value:String(i)}, m))
+              ),
+              React.createElement('span', {className:'text-neutral-600'}, '• ', (12-startMonth), ' mois'),
+              // Export / Import
+              React.createElement('button', {className:'ml-3 px-3 py-1.5 rounded-xl bg-neutral-900 text-white', onClick:doExport}, 'Exporter JSON'),
+              React.createElement('label', {className:'px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 cursor-pointer'},
+                'Importer JSON',
+                React.createElement('input', {type:'file', accept:'application/json', className:'hidden', onChange:e=>e.target.files[0] && doImport(e.target.files[0])})
+              )
+            )
+          )
+        ),
+
+        React.createElement('main', {className:'max-w-6xl mx-auto px-4 pb-24 pt-6 grid gap-6'},
+          React.createElement('div', {className:'flex gap-2'},
+            React.createElement('button', {onClick:()=>setTab('dashboard'), className:'tab-btn '+(tab==='dashboard'?'tab-active':'tab-inactive')}, 'Tableau'),
+            React.createElement('button', {onClick:()=>setTab('actuals'), className:'tab-btn '+(tab==='actuals'?'tab-active':'tab-inactive')}, 'Réel vs Prévu')
+          ),
+
+          // DASHBOARD
+          tab==='dashboard' && React.createElement(React.Fragment, null,
+            React.createElement('section', {className:'grid sm:grid-cols-5 gap-3 items-stretch'},
+              React.createElement(Card, {title:'Revenu période (flotte - prévu)'}, fmtEUR(fleet.revPlan)),
+              React.createElement(Card, {title:'Coûts période (flotte - prévu)'}, fmtEUR(fleet.costPlan)),
+              React.createElement(Card, {title:'Profit période (flotte - prévu)'}, React.createElement('span', {className: (fleet.profitPlan)>=0?'text-emerald-600':'text-rose-600'}, fmtEUR(fleet.profitPlan))),
+              React.createElement(Card, {title:'ROI période (prévu)'}, (fleet.roiPlan*100).toFixed(1)+'%'),
+              React.createElement(Card, {title:'Actifs'}, fleet.activeCount+' / '+fleet.totalCount)
+            ),
+            v && (function(){ const c = calcPlan(v); return React.createElement('section', {className:'bg-white rounded-2xl shadow p-4'},
+              React.createElement('div', {className:'flex flex-wrap items-center gap-2 mb-3'},
+                React.createElement('label', {className:'text-sm font-medium'}, 'Vehicule :'),
+                React.createElement('select', {className:'border rounded-xl px-3 py-2', value:selected, onChange:e=>setSelected(e.target.value)}, vehicles.map(vv=>React.createElement('option',{key:vv.id, value:vv.id}, vv.name))),
+                React.createElement('button', {className:'ml-auto px-3 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200', onClick:()=>toggleActive(v.id)}, v.active?'Suspendre':'Reprendre')
+              ),
+              React.createElement('div', {className:'grid lg:grid-cols-3 gap-6'},
+                // Editable panel
+                React.createElement('div', {className:'lg:col-span-1 grid gap-4'},
+                  React.createElement(Field, {label:'Nom du vehicule'}, React.createElement('input', {className:'w-full border rounded-xl px-3 py-2', value:v.name, onChange:e=>update({name:e.target.value})})),
+                  React.createElement('div', {className:'grid grid-cols-2 gap-4'},
+                    React.createElement(Field, {label:"Prix d'achat"}, React.createElement(InputNumber, {value:v.purchasePrice, onChange:val=>update({purchasePrice:val}), suffix:'€'})),
+                    React.createElement(Field, {label:'Tarif locataire / jour'}, React.createElement(InputNumber, {value:v.dailyPrice, onChange:val=>update({dailyPrice:val}), suffix:'€'}))
+                  ),
+                  React.createElement('div', {className:'grid grid-cols-2 gap-4'},
+                    React.createElement(Field, {label:'Commission plateforme'}, React.createElement(InputNumber, {value:Math.round(v.commissionRate*10000)/100, onChange:val=>update({commissionRate: clamp(val,0,100)/100}), suffix:'%'})),
+                    React.createElement(Field, {label:'Jours loues / mois'}, React.createElement(InputNumber, {value:v.daysPerMonth, onChange:val=>update({daysPerMonth: clamp(val,0,31)}), suffix:'j'}))
+                  ),
+                  React.createElement('div', {className:'grid gap-2 border rounded-xl p-3'},
+                    React.createElement('label', {className:'text-sm font-medium flex items-center gap-2'},
+                      React.createElement('input', {type:'checkbox', checked:!!v.useSeasonality, onChange:e=>update({useSeasonality:e.target.checked})}),
+                      'Activer la saisonnalite (definir des jours loues par mois)'
+                    ),
+                    v.useSeasonality && React.createElement('div', {className:'grid grid-cols-3 sm:grid-cols-6 gap-2'},
+                      MONTHS.map((m,i)=>
+                        React.createElement('div', {key:m, className:'grid text-xs'},
+                          React.createElement('span', {className:'text-neutral-600 mb-1'}, m),
+                          React.createElement('input', {type:'number', className:'border rounded-lg px-2 py-1', min:0, max:31,
+                            value:(v.seasonality && v.seasonality[i]!==undefined) ? v.seasonality[i] : v.daysPerMonth,
+                            onChange:e=>{ const arr = (v.seasonality && v.seasonality.length===12) ? v.seasonality.slice() : new Array(12).fill(v.daysPerMonth); arr[i]=Number(e.target.value); update({seasonality:arr}); }
+                          })
+                        )
+                      )
+                    )
+                  ),
+                  React.createElement('div', {className:'grid grid-cols-2 gap-4'},
+                    React.createElement(Field, {label:'Assurance / mois'}, React.createElement(InputNumber, {value:v.insuranceMonthly, onChange:val=>update({insuranceMonthly:val}), suffix:'€'})),
+                    React.createElement(Field, {label:'Connect / mois'}, React.createElement(InputNumber, {value:v.connectMonthly, onChange:val=>update({connectMonthly:val}), suffix:'€'})),
+                    React.createElement(Field, {label:'Stationnement / mois'}, React.createElement(InputNumber, {value:v.parkingMonthly, onChange:val=>update({parkingMonthly:val}), suffix:'€'})),
+                    React.createElement(Field, {label:'Autres frais / mois'}, React.createElement(InputNumber, {value:v.otherMonthly, onChange:val=>update({otherMonthly:val}), suffix:'€'}))
+                  ),
+                  React.createElement(Field, {label:'Entretien annuel (prevision)'}, React.createElement(InputNumber, {value:v.maintenanceAnnual, onChange:val=>update({maintenanceAnnual:val}), suffix:'€'}))
+                ),
+                // KPI
+                React.createElement('div', {className:'lg:col-span-2 grid sm:grid-cols-2 gap-4'},
+                  React.createElement(Card, {title:'Revenu période (prévu)'}, fmtEUR(c.periodRevenue)),
+                  React.createElement(Card, {title:'Coûts période (prévu)'}, fmtEUR(c.periodCosts)),
+                  React.createElement(Card, {title:'Profit période (prévu)'}, React.createElement('span', {className: c.periodProfit>=0?'text-emerald-600':'text-rose-600'}, fmtEUR(c.periodProfit))),
+                  React.createElement(Card, {title:'Seuil rentabilité (j/mois)'}, c.breakevenDays.toFixed(1))
+                ),
+                React.createElement('div', {className:'lg:col-span-3 grid lg:grid-cols-2 gap-6'},
+                  React.createElement('div', {className:'bg-white rounded-2xl shadow p-4'},
+                    React.createElement('h3', {className:'font-semibold mb-2'}, 'Revenu / Couts / Profit (prévu - période)'),
+                    React.createElement('div', {className:'h-64'},
+                      React.createElement(ResponsiveContainer, {width:'100%', height:'100%'},
+                        React.createElement(BarChart, {data:c.chart},
+                          React.createElement(CartesianGrid, {strokeDasharray:'3 3'}),
+                          React.createElement(XAxis, {dataKey:'mois'}),
+                          React.createElement(YAxis, null),
+                          React.createElement(Tooltip, {formatter:(v)=>fmtEUR(Number(v))}),
+                          React.createElement(Legend, null),
+                          React.createElement(Bar, {dataKey:'Revenu'}),
+                          React.createElement(Bar, {dataKey:'Couts'}),
+                          React.createElement(Bar, {dataKey:'Profit'})
+                        )
+                      )
+                    )
+                  ),
+                  React.createElement('div', {className:'bg-white rounded-2xl shadow p-4'},
+                    React.createElement('h3', {className:'font-semibold mb-2'}, 'Profit cumule (prévu - période)'),
+                    React.createElement('div', {className:'h-64'},
+                      React.createElement(ResponsiveContainer, {width:'100%', height:'100%'},
+                        React.createElement(LineChart, {data:c.chart},
+                          React.createElement(CartesianGrid, {strokeDasharray:'3 3'}),
+                          React.createElement(XAxis, {dataKey:'mois'}),
+                          React.createElement(YAxis, null),
+                          React.createElement(Tooltip, {formatter:(v)=>fmtEUR(Number(v))}),
+                          React.createElement(Legend, null),
+                          React.createElement(Line, {type:'monotone', dataKey:'Cumul', dot:false})
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )})()
+          ),
+
+          // ACTUALS
+          tab==='actuals' && React.createElement(React.Fragment, null,
+            React.createElement('section', {className:'grid sm:grid-cols-5 gap-3 items-stretch'},
+              React.createElement(Card, {title:'Revenu période (flotte - RÉEL)'}, fmtEUR(fleet.revActual)),
+              React.createElement(Card, {title:'Coûts période (flotte - RÉEL)'}, fmtEUR(fleet.costActual)),
+              React.createElement(Card, {title:'Profit période (flotte - RÉEL)'}, React.createElement('span', {className: fleet.profitActual>=0?'text-emerald-600':'text-rose-600'}, fmtEUR(fleet.profitActual))),
+              React.createElement(Card, {title:'ROI période (RÉEL)'}, (fleet.roiActual*100).toFixed(1)+'%'),
+              React.createElement(Card, {title:'Actifs'}, fleet.activeCount+' / '+fleet.totalCount)
+            ),
+            React.createElement('section', {className:'bg-white rounded-2xl shadow p-4 grid gap-4'},
+              React.createElement('h3', {className:'font-semibold'}, 'Ajouter une location (réel)'),
+              React.createElement('div', {className:'grid md:grid-cols-3 gap-4'},
+                React.createElement(Field, {label:'Véhicule'},
+                  React.createElement('select', {className:'border rounded-xl px-3 py-2', value:form.vehicleId, onChange:e=>setForm({...form, vehicleId:e.target.value})},
+                    vehicles.map(vv=> React.createElement('option', {key:vv.id, value:vv.id}, vv.name))
+                  )
+                ),
+                React.createElement(Field, {label:'Début'}, React.createElement('input', {type:'date', className:'border rounded-xl px-3 py-2', value:form.start, onChange:e=>setForm({...form, start:e.target.value})})),
+                React.createElement(Field, {label:'Fin'}, React.createElement('input', {type:'date', className:'border rounded-xl px-3 py-2', value:form.end, onChange:e=>setForm({...form, end:e.target.value})}))
+              ),
+              React.createElement('div', {className:'grid md:grid-cols-5 gap-4'},
+                React.createElement(Field, {label:'Montant total (€) (par défaut)'}, React.createElement('input', {type:'number', className:'border rounded-xl px-3 py-2', value:form.totalAmount, onChange:e=>setForm({...form, totalAmount:e.target.value})})),
+                React.createElement(Field, {label:'Prix/jour (€) (optionnel)'}, React.createElement('input', {type:'number', className:'border rounded-xl px-3 py-2', value:form.pricePerDay, onChange:e=>setForm({...form, pricePerDay:e.target.value})})),
+                React.createElement(Field, {label:'Commission (%) — ex: 10 pour 10%'}, React.createElement('input', {type:'number', className:'border rounded-xl px-3 py-2', value:form.commissionRate, onChange:e=>setForm({...form, commissionRate:e.target.value})})),
+                React.createElement(Field, {label:'Frais/Extras (€)'}, React.createElement('input', {type:'number', className:'border rounded-xl px-3 py-2', value:form.extraFees, onChange:e=>setForm({...form, extraFees:e.target.value})})),
+                React.createElement(Field, {label:'Carburant (±€)'}, React.createElement('input', {type:'number', className:'border rounded-xl px-3 py-2', value:form.fuel, onChange:e=>setForm({...form, fuel:e.target.value})}))
+              ),
+              React.createElement(Field, {label:'Plateforme'},
+                React.createElement('select', {className:'border rounded-xl px-3 py-2 w-full md:w-auto', value:form.platform, onChange:e=>setForm({...form, platform:e.target.value})},
+                  ['getaround','turo','direct','autre'].map(p=> React.createElement('option', {key:p, value:p}, p))
+                )
+              ),
+              React.createElement(Field, {label:'Notes'}, React.createElement('input', {type:'text', className:'border rounded-xl px-3 py-2', value:form.notes, onChange:e=>setForm({...form, notes:e.target.value})})),
+              React.createElement('div', null,
+                React.createElement('button', {className:'px-4 py-2 rounded-xl bg-neutral-900 text-white', onClick:addBooking}, '+ Ajouter')
+              ),
+              React.createElement('p', {className:'text-xs text-neutral-600'}, 'Commission en %: 10 = 10%. Carburant: +3.78 si tu rembourses, -3.78 si tu factures au client.')
+            ),
+            React.createElement('section', {className:'bg-white rounded-2xl shadow p-4'},
+              React.createElement('div', {className:'mb-3 flex items-center justify-between'},
+                React.createElement('h3', {className:'font-semibold'}, 'Locations réelles'),
+                React.createElement('div', {className:'text-sm text-neutral-600'}, bookings.length, ' enregistrements')
+              ),
+              React.createElement('div', {className:'overflow-x-auto'},
+                React.createElement('table', {className:'w-full text-sm'},
+                  React.createElement('thead', null,
+                    React.createElement('tr', {className:'text-left text-neutral-600'},
+                      ['Véhicule','Début','Fin','Total','Commission','Frais','Carburant','Net (estimé)','Notes',''].map(h=> React.createElement('th',{key:h, className:'py-2 pr-2'}, h))
+                    )
+                  ),
+                  React.createElement('tbody', null,
+                    bookings.map(b=>{
+                      const veh = vehicles.find(vv=>vv.id===b.vehicleId);
+                      const name = veh? veh.name : b.vehicleId;
+                      return React.createElement('tr', {key:b.id, className:'border-t align-top'},
+                        React.createElement('td', {className:'py-2 pr-2'}, name),
+                        React.createElement('td', {className:'py-2 pr-2'}, b.start),
+                        React.createElement('td', {className:'py-2 pr-2'}, b.end),
+                        React.createElement('td', {className:'py-2 pr-2'}, fmtEUR(b.total)),
+                        React.createElement('td', {className:'py-2 pr-2'}, Math.round((b.commission*100))+'%'),
+                        React.createElement('td', {className:'py-2 pr-2'}, fmtEUR(b.extra)),
+                        React.createElement('td', {className:'py-2 pr-2'}, fmtEUR(b.fuel)),
+                        React.createElement('td', {className:'py-2 pr-2'}, fmtEUR(b.net)),
+                        React.createElement('td', {className:'py-2 pr-2 max-w-[240px] truncate', title:b.notes||''}, b.notes||''),
+                        React.createElement('td', {className:'py-2 pr-2 text-right'}, React.createElement('button', {className:'px-2 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700', onClick:()=>removeBooking(b.id)}, 'Supprimer'))
+                      );
+                    })
+                  )
+                )
+              )
+            ),
+            v && (function(){ const comp = compareVehicle(v); return React.createElement('section', {className:'bg-white rounded-2xl shadow p-4 grid gap-4'},
+              React.createElement('div', {className:'flex items-center gap-2'}, 
+                React.createElement('h3', {className:'font-semibold'}, 'Comparatif (', v.name ,') — Prévu vs Réel')),
+              React.createElement('div', {className:'grid sm:grid-cols-3 gap-3'},
+                React.createElement(Card, {title:'Revenu (prévu → réel)'}, fmtEUR(comp.kpis.prevRev)+' → '+fmtEUR(comp.kpis.actRev)),
+                React.createElement(Card, {title:'Profit (prévu → réel)'},
+                  React.createElement('span', {className:(comp.kpis.actProfit-comp.kpis.prevProfit)>=0?'text-emerald-600':'text-rose-600'}, fmtEUR(comp.kpis.prevProfit)+' → '+fmtEUR(comp.kpis.actProfit))
+                ),
+                React.createElement(Card, {title:'Écart profit (réel - prévu)'}, 
+                  React.createElement('span', {className:(comp.kpis.diffProfit)>=0?'text-emerald-600':'text-rose-600'}, fmtEUR(comp.kpis.diffProfit))
+                )
+              ),
+              React.createElement('div', {className:'h-64'},
+                React.createElement(ResponsiveContainer, {width:'100%', height:'100%'},
+                  React.createElement(BarChart, {data:comp.rows},
+                    React.createElement(CartesianGrid, {strokeDasharray:'3 3'}),
+                    React.createElement(XAxis, {dataKey:'mois'}),
+                    React.createElement(YAxis, null),
+                    React.createElement(Tooltip, {formatter:(v)=>fmtEUR(Number(v))}),
+                    React.createElement(Legend, null),
+                    React.createElement(Bar, {dataKey:'Prev', name:'Prévu'}),
+                    React.createElement(Bar, {dataKey:'Reel', name:'Réel'})
+                  )
+                )
+              )
+            )})()
+          )
+        )
+      );
+    }
+
+    function Card({title, children}){
+      return React.createElement('div', {className:'rounded-2xl border bg-white shadow p-4'},
+        React.createElement('div', {className:'text-xs uppercase tracking-wide text-neutral-500 mb-1'}, title),
+        React.createElement('div', {className:'text-lg font-semibold mono'}, children)
+      );
+    }
+    function Field({label, children}){
+      return React.createElement('label', {className:'grid gap-1'},
+        React.createElement('span', {className:'text-sm font-medium text-neutral-700'}, label),
+        children
+      );
+    }
+    function InputNumber({value, onChange, suffix}){
+      return React.createElement('div', {className:'flex items-center border rounded-xl overflow-hidden'},
+        React.createElement('input', {className:'w-full px-3 py-2 outline-none', type:'number', value: Number.isFinite(value)? value : 0, step:'0.01', onChange:e=>onChange(Number(e.target.value))}),
+        suffix ? React.createElement('div', {className:'px-3 py-2 bg-neutral-50 border-l text-neutral-600'}, suffix) : null
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(App));
+  }
+  startApp();
+  </script>
+</body>
+</html>

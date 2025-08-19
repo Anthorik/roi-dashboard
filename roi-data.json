@@ -1,0 +1,141 @@
+{
+  "exportedAt": "2025-08-19T06:20:58.875Z",
+  "startMonth": 7,
+  "vehicles": [
+    {
+      "active": true,
+      "id": "clio-2021",
+      "name": "Clio 5 Limited SCE 65 (2021)",
+      "purchasePrice": 10890,
+      "dailyPrice": 42,
+      "commissionRate": 0.2,
+      "daysPerMonth": 15,
+      "insuranceMonthly": 54,
+      "connectMonthly": 25,
+      "parkingMonthly": 0,
+      "otherMonthly": 0,
+      "maintenanceAnnual": 600,
+      "useSeasonality": true,
+      "seasonality": [
+        12,
+        12,
+        14,
+        15,
+        16,
+        18,
+        20,
+        19,
+        16,
+        14,
+        13,
+        18
+      ]
+    },
+    {
+      "active": true,
+      "id": "tesla-2022",
+      "name": "Tesla Model 3 Propulsion (2022)",
+      "purchasePrice": 39000,
+      "dailyPrice": 75,
+      "commissionRate": 0.275,
+      "daysPerMonth": 10,
+      "insuranceMonthly": 115,
+      "connectMonthly": 0,
+      "parkingMonthly": 0,
+      "otherMonthly": 375,
+      "maintenanceAnnual": 500,
+      "useSeasonality": false,
+      "seasonality": [
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10
+      ]
+    }
+  ],
+  "bookings": [
+    {
+      "id": "b6a60a8e-6b4d-4eb2-b122-6b981da07126",
+      "vehicleId": "clio-2021",
+      "start": "2025-08-19",
+      "end": "2025-08-19",
+      "totalAmount": 28,
+      "pricePerDay": null,
+      "platform": "getaround",
+      "commissionRate": 10,
+      "extraFees": 0,
+      "fuel": 0,
+      "notes": "",
+      "total": 28,
+      "commission": 0.1,
+      "extra": 0,
+      "net": 25.2,
+      "segs": [
+        {
+          "year": 2025,
+          "month": 7,
+          "days": 1
+        }
+      ],
+      "totalDays": 1
+    },
+    {
+      "id": "046293e4-5c6b-407b-a50a-27eb1a57243d",
+      "vehicleId": "clio-2021",
+      "start": "2025-08-16",
+      "end": "2025-08-17",
+      "totalAmount": 50,
+      "pricePerDay": null,
+      "platform": "getaround",
+      "commissionRate": 10,
+      "extraFees": 0,
+      "fuel": -14.49,
+      "notes": "",
+      "total": 50,
+      "commission": 0.1,
+      "extra": 0,
+      "net": 59.49,
+      "segs": [
+        {
+          "year": 2025,
+          "month": 7,
+          "days": 2
+        }
+      ],
+      "totalDays": 2
+    },
+    {
+      "id": "7bb5295f-5208-4a23-92e1-10750a523b8e",
+      "vehicleId": "clio-2021",
+      "start": "2025-08-15",
+      "end": "2025-08-16",
+      "totalAmount": 49,
+      "pricePerDay": null,
+      "platform": "getaround",
+      "commissionRate": 0.1,
+      "extraFees": 0,
+      "fuel": 3.78,
+      "notes": "",
+      "total": 49,
+      "commission": 0.1,
+      "extra": 0,
+      "net": 40.32,
+      "segs": [
+        {
+          "year": 2025,
+          "month": 7,
+          "days": 2
+        }
+      ],
+      "totalDays": 2
+    }
+  ]
+}
