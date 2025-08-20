@@ -112,8 +112,9 @@
         <input type="text" id="notes" placeholder="Ex. week-end, pro, remise…"/>
       </div>
     </div>
-    <div class="mt-3 flex gap-2">
-      <button class="btn" onclick="saveLocation()">Enregistrer</button>
+    <div class="mt-3 flex flex-wrap gap-2">
+      <button id="saveBtn" class="btn" onclick="saveLocation()">Enregistrer</button>
+      <button id="cancelEditBtn" class="btn-ghost hidden" onclick="cancelEdit()">Annuler</button>
       <select id="filterVehicule" class="w-auto">
         <option value="ALL">Tous véhicules</option>
         <option value="Clio">Clio</option>
@@ -127,7 +128,7 @@
       <table>
         <thead>
           <tr>
-            <th>Date</th><th>Jours</th><th>€/j</th><th>Km</th><th>Frais</th><th>Carburant ±</th><th>Véhicule</th><th>Net loc</th><th>Notes</th><th></th>
+            <th>Date</th><th>Jours</th><th>€/j</th><th>Km</th><th>Frais</th><th>Carburant ±</th><th>Véhicule</th><th>Net loc</th><th>Notes</th><th>Actions</th>
           </tr>
         </thead>
         <tbody id="locTable"></tbody>
@@ -223,7 +224,7 @@
 
   <script>
     // ===== Storage & State =====
-    const KEY='roi_dark_v2';
+    const KEY='roi_dark_v3';
     const data = JSON.parse(localStorage.getItem(KEY) || '{}');
     const theme = data.theme || 'dark';            // 'dark' | 'light'
     let teslaOn   = data.teslaOn ?? false;
@@ -234,6 +235,7 @@
     };
     // locations: {id, date, jours, prixJour, kms, extras, fuelAdj, notes, vehicule}
     let locations = data.locations || [];
+    let editId = null; // <-- MODE ÉDITION
 
     // ===== Theme init =====
     function applyTheme(){
@@ -287,36 +289,81 @@
     function saveAll(){
       localStorage.setItem(KEY, JSON.stringify({theme: themeToggle.checked?'light':'dark', teslaOn, settings, locations}));
     }
+    function setEditMode(on){
+      const saveBtn = $('saveBtn');
+      const cancelBtn = $('cancelEditBtn');
+      if(on){
+        saveBtn.textContent = 'Mettre à jour';
+        cancelBtn.classList.remove('hidden');
+      } else {
+        saveBtn.textContent = 'Enregistrer';
+        cancelBtn.classList.add('hidden');
+      }
+    }
 
     // ===== Locations CRUD =====
     function saveLocation(){
       const date = $('date').value;
       if(!date) return alert('Choisis une date');
-      const loc = {
-        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+
+      const obj = {
         date,
         jours: Number($('jours').value||1),
         prixJour: Number($('prixJour').value||0),
         kms: $('kms').value ? Number($('kms').value) : 0,
         extras: Number($('extras').value||0),
-        fuelAdj: Number($('fuelAdj').value||0),
+        fuelAdj: Number($('fuelAdj').value||0), // <-- AJUSTEMENT CARBURANT
         notes: $('notes').value||'',
         vehicule: teslaToggle.checked ? $('vehicule').value : 'Clio'
       };
-      locations.push(loc);
+
+      if(editId){
+        // update
+        locations = locations.map(l => l.id===editId ? {...l, ...obj} : l);
+        editId = null;
+        setEditMode(false);
+      } else {
+        // create
+        const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+        locations.push({ id, ...obj });
+      }
+
       saveAll();
       clearLocForm();
-      renderTable();
+      renderTable(); renderCharts();
     }
+
+    function cancelEdit(){
+      editId = null;
+      clearLocForm();
+      setEditMode(false);
+    }
+
     function clearLocForm(){
-      ['date','jours','prixJour','kms','extras','fuelAdj','notes'].forEach(id=>{
-        if(id==='jours'){$(id).value=1;} else if(id==='prixJour'){$(id).value=30;} else { $(id).value=''; }
-      });
+      $('date').value=''; $('jours').value=1; $('prixJour').value=30;
+      $('kms').value=''; $('extras').value='0'; $('fuelAdj').value='0'; $('notes').value='';
       if(teslaToggle.checked) $('vehicule').value='Clio';
     }
+
     function removeLoc(id){
       locations = locations.filter(l=> l.id!==id);
       saveAll(); renderTable(); renderCharts();
+    }
+
+    function editLoc(id){
+      const l = locations.find(x=> x.id===id);
+      if(!l) return;
+      editId = id;
+      $('date').value = l.date || '';
+      $('jours').value = l.jours ?? 1;
+      $('prixJour').value = l.prixJour ?? 0;
+      $('kms').value = l.kms ?? '';
+      $('extras').value = l.extras ?? 0;
+      $('fuelAdj').value = l.fuelAdj ?? 0;   // <-- PRE-FILL CARBURANT
+      $('notes').value = l.notes || '';
+      if(teslaToggle.checked && l.vehicule) $('vehicule').value = l.vehicule;
+      setEditMode(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function netLocation(loc){
@@ -325,7 +372,7 @@
       const after = gross * (1 - com);
       const wear  = (loc.kms||0) * (settings.wearPerKm||0);
       const extras = (loc.extras||0);
-      const fuelAdj = (loc.fuelAdj||0); // + si tu factures, - si tu rembourses
+      const fuelAdj = (loc.fuelAdj||0); // + si facturation, − si remboursement
       return after - wear - extras + fuelAdj;
     }
 
@@ -349,14 +396,17 @@
         tr.innerHTML = `
           <td>${l.date}</td>
           <td>${l.jours||1}</td>
-          <td>${l.prixJour.toFixed(2)}</td>
+          <td>${l.prixJour?.toFixed ? l.prixJour.toFixed(2) : Number(l.prixJour||0).toFixed(2)}</td>
           <td>${l.kms||'-'}</td>
           <td>${(l.extras||0).toFixed(2)}</td>
           <td>${(l.fuelAdj||0).toFixed(2)}</td>
           <td>${l.vehicule||'Clio'}</td>
           <td><span class="pill" style="background:${net>=0?'rgba(16,185,129,.2)':'rgba(239,68,68,.2)'};color:${net>=0?'#10b981':'#ef4444'}">${net.toFixed(2)}€</span></td>
-          <td title="${l.notes||''}" style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l.notes||''}</td>
-          <td><button class="btn-ghost" onclick="removeLoc('${l.id}')">🗑️</button></td>
+          <td title="${(l.notes||'').replace(/"/g,'&quot;')}" style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l.notes||''}</td>
+          <td class="whitespace-nowrap">
+            <button class="btn-ghost" onclick="editLoc('${l.id}')">✏️</button>
+            <button class="btn-ghost" onclick="removeLoc('${l.id}')">🗑️</button>
+          </td>
         `;
         tbody.appendChild(tr);
       }
