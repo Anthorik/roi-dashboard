@@ -1,438 +1,136 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="dark">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Dashboard ROI – Avancé (sans build)</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard ROI - Location Autos</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    :root{ --c1:#4f46e5; --c2:#10b981; --c3:#f59e0b; --c4:#ef4444; --bg:#f8fafc; }
-    body{ background:var(--bg); }
-    .card{ background:#fff; border-radius:1rem; box-shadow:0 10px 30px rgba(2,6,23,.08); padding:1rem; }
-    .btn{ padding:.55rem .8rem; border-radius:.8rem; font-weight:600; }
-    .btn-primary{ color:#fff; background:var(--c1); }
-    .btn-secondary{ color:#fff; background:var(--c2); }
-    .btn-ghost{ background:#eef2f7; color:#0f172a; }
-    .input, .select{ width:100%; border:1px solid #cbd5e1; border-radius:.8rem; padding:.55rem .8rem; background:#fff; }
-    .pill{ font-size:.75rem; font-weight:700; padding:.25rem .6rem; border-radius:999px; }
-    nav .tab{ padding:.5rem .75rem; border-radius:.75rem; font-weight:600; color:#475569; cursor:pointer; }
-    nav .tab.active{ background:#e0e7ff; color:#111827; }
-    .grid-cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1rem; }
-    .tbl th,.tbl td{ padding:.5rem .55rem; }
-    .hint{ font-size:.78rem; color:#64748b; }
+    body { background-color: #111827; color: #e5e7eb; }
+    .card { background-color: #1f2937; border-radius: 0.75rem; padding: 1.5rem; }
+    .btn { background-color: #2563eb; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; }
+    .btn:hover { background-color: #1e40af; }
+    input, select {
+      background-color: #374151; color: #f3f4f6; border-radius: 0.375rem; padding: 0.5rem;
+    }
   </style>
 </head>
-<body class="min-h-screen">
-  <header class="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-slate-200">
-    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-      <div class="flex items-center gap-3">
-        <div class="h-9 w-9 rounded-xl flex items-center justify-center text-white" style="background:var(--c1)">🚗</div>
-        <h1 class="text-lg font-bold">Dashboard ROI – Clio 5</h1>
-      </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <button id="exportBtn" class="btn btn-ghost">Exporter JSON</button>
-        <label class="btn btn-ghost cursor-pointer">
-          Importer JSON
-          <input id="importInput" type="file" accept="application/json" class="hidden"/>
-        </label>
-        <button id="exportCsvBtn" class="btn btn-ghost">Export CSV</button>
-      </div>
-    </div>
-    <div class="max-w-7xl mx-auto px-4 pb-3">
-      <nav class="flex flex-wrap gap-2">
-        <button class="tab active" data-tab="locations">📒 Locations réelles</button>
-        <button class="tab" data-tab="parametres">⚙️ Paramètres</button>
-        <button class="tab" data-tab="previsions">📈 Prévisions & tarifs</button>
-        <button class="tab" data-tab="suivi">📊 Suivi mensuel</button>
-      </nav>
-    </div>
-  </header>
+<body class="p-6">
+  <h1 class="text-3xl font-bold mb-6 text-center">📊 Dashboard ROI - Flotte Auto</h1>
 
-  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
-    <!-- LOCATIONS -->
-    <section id="tab-locations" class="space-y-6">
-      <section class="card">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-xl font-semibold">Locations (ajout & édition)</h2>
-          <div class="flex gap-2">
-            <input id="filterMonth" type="month" class="input !w-auto"/>
-            <button id="clearFilter" class="btn btn-ghost">Effacer filtre</button>
-          </div>
-        </div>
-        <form id="rentalForm" class="grid grid-cols-1 md:grid-cols-8 gap-3 items-end">
-          <div class="md:col-span-2"><label class="text-sm text-slate-600">Début</label><input id="startDate" type="date" class="input"/></div>
-          <div><label class="text-sm text-slate-600">Jours</label><input id="days" type="number" class="input" min="1" value="1"/></div>
-          <div><label class="text-sm text-slate-600">Prix proprio €/j</label><input id="pricePerDay" type="number" class="input" min="0" step="0.1" value="30"/></div>
-          <div><label class="text-sm text-slate-600">Km total</label><input id="kms" type="number" class="input" min="0" step="1" placeholder="ex. 250"/></div>
-          <div><label class="text-sm text-slate-600">Extras (carburant, divers) €</label><input id="extraCosts" type="number" class="input" min="0" step="0.1" value="0"/></div>
-          <div class="md:col-span-2"><label class="text-sm text-slate-600">Notes</label><input id="notes" type="text" class="input" placeholder="Ex. week-end, pro, remise, etc."/></div>
-          <div><button class="btn btn-secondary w-full" type="submit">Enregistrer</button></div>
-        </form>
+  <!-- Onglets -->
+  <div class="flex justify-center space-x-4 mb-6">
+    <button class="btn" onclick="showTab('locations')">Locations réelles</button>
+    <button class="btn" onclick="showTab('params')">Paramètres</button>
+    <button class="btn" onclick="showTab('previsions')">Prévisions & Tarifs</button>
+    <button class="btn" onclick="showTab('suivi')">Suivi mensuel</button>
+  </div>
 
-        <div class="mt-6 overflow-x-auto">
-          <table class="min-w-full text-sm tbl">
-            <thead>
-              <tr class="text-left text-slate-600">
-                <th class="py-2">Début</th><th>Jours</th><th>€/j</th><th>Km</th><th>Extras €</th><th>Net loc €</th><th>Notes</th><th></th>
-              </tr>
-            </thead>
-            <tbody id="rentalTable" class="align-top"></tbody>
-          </table>
-        </div>
-        <div class="hint mt-2">Le net location = (prix × jours × (1–commission)) – usure (km×€/km) – extras.</div>
-      </section>
-    </section>
+  <!-- Locations -->
+  <div id="locations" class="tab card hidden">
+    <h2 class="text-xl font-semibold mb-4">📅 Locations réelles</h2>
+    <form id="locationForm" class="space-y-2">
+      <input type="date" id="date" required />
+      <input type="number" id="revenu" placeholder="Revenu brut (€)" required />
+      <input type="number" id="commission" placeholder="Commission (€)" required />
+      <input type="number" id="carburant" placeholder="Carburant (€)" />
+      <button type="submit" class="btn">Ajouter</button>
+    </form>
+    <ul id="locationList" class="mt-4 space-y-2"></ul>
+  </div>
 
-    <!-- PARAMETRES -->
-    <section id="tab-parametres" class="hidden space-y-6">
-      <section class="card">
-        <h2 class="text-xl font-semibold mb-4">Paramètres généraux</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div><label class="text-sm text-slate-600">Commission plateforme (%)</label><input id="commission" type="number" class="input" min="0" max="50" step="0.1" value="10"/></div>
-          <div><label class="text-sm text-slate-600">Assurance mensuelle (€)</label><input id="fix_assurance" type="number" class="input" min="0" step="1" value="54"/></div>
-          <div><label class="text-sm text-slate-600">Connect mensuel (€)</label><input id="fix_connect" type="number" class="input" min="0" step="1" value="25"/></div>
-          <div><label class="text-sm text-slate-600">Entretien provision (€)</label><input id="fix_entretien" type="number" class="input" min="0" step="1" value="45"/></div>
-          <div><label class="text-sm text-slate-600">Usure €/km</label><input id="wear_per_km" type="number" class="input" min="0" step="0.01" value="0.12"/></div>
-          <div><label class="text-sm text-slate-600">Km inclus / jour</label><input id="km_inclus" type="number" class="input" min="0" step="1" value="100"/></div>
-        </div>
-        <div class="mt-3"><button id="saveSettings" class="btn btn-primary">Enregistrer paramètres</button> <span id="settingsSaved" class="text-sm text-slate-500 hidden">✔️ Sauvegardé</span></div>
-      </section>
+  <!-- Paramètres -->
+  <div id="params" class="tab card hidden">
+    <h2 class="text-xl font-semibold mb-4">⚙️ Paramètres</h2>
+    <label>Frais assurance mensuels (€):</label>
+    <input type="number" id="assurance" value="54" class="w-full mb-2"/>
+    <label>Frais boîtier Connect (€):</label>
+    <input type="number" id="connect" value="25" class="w-full mb-2"/>
+    <button class="btn mt-2" onclick="saveParams()">💾 Sauvegarder</button>
+  </div>
 
-      <section class="card">
-        <h3 class="text-lg font-semibold mb-3">Réductions automatiques (affichage & rappel)</h3>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div><label class="text-sm text-slate-600">- % dès 2 jours</label><input id="disc2" type="number" class="input" min="0" max="80" step="1" value="15"/></div>
-          <div><label class="text-sm text-slate-600">- % dès 7 jours</label><input id="disc7" type="number" class="input" min="0" max="80" step="1" value="25"/></div>
-          <div><label class="text-sm text-slate-600">- % dès 30 jours</label><input id="disc30" type="number" class="input" min="0" max="80" step="1" value="40"/></div>
-          <div><label class="text-sm text-slate-600">Multiplicateur locataire (observé)</label><input id="mult_loc" type="number" class="input" min="1" step="0.01" value="1.96"/></div>
-        </div>
-        <div class="hint mt-2">Le multiplicateur locataire estime le prix affiché côté client (ex. 24€ proprio → ~47€ locataire si 1,96).</div>
-      </section>
-    </section>
+  <!-- Prévisions -->
+  <div id="previsions" class="tab card hidden">
+    <h2 class="text-xl font-semibold mb-4">📈 Prévisions & Tarifs</h2>
+    <label>Prix propriétaire (€):</label>
+    <input type="number" id="prixProprio" value="24" class="w-full mb-2"/>
+    <label>Jours estimés par mois:</label>
+    <input type="number" id="joursEstim" value="10" class="w-full mb-2"/>
+    <button class="btn mt-2" onclick="calcPrevision()">Calculer</button>
+    <p id="previsionRes" class="mt-4"></p>
+  </div>
 
-    <!-- PREVISIONS -->
-    <section id="tab-previsions" class="hidden space-y-6">
-      <section class="card">
-        <h2 class="text-xl font-semibold mb-4">Prévisions & grille tarifs</h2>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div><label class="text-sm text-slate-600">Jours loués / mois</label><input id="sim_days" type="number" class="input" min="0" max="31" value="12"/></div>
-          <div><label class="text-sm text-slate-600">Prix proprio €/j</label><input id="sim_price" type="number" class="input" min="0" step="0.1" value="30"/></div>
-          <div><label class="text-sm text-slate-600">Km/j (moy.)</label><input id="sim_km_day" type="number" class="input" min="0" step="1" value="100"/></div>
-          <div><label class="text-sm text-slate-600">Saisonnalité (%)</label><input id="sim_season" type="number" class="input" min="0" step="1" value="100"/></div>
-        </div>
-        <div class="mt-3 flex gap-2"><button id="runSim" class="btn btn-secondary">Calculer</button><span id="simSaved" class="text-sm text-slate-500 hidden">✔️ Mis à jour</span></div>
-        <div id="simResult" class="mt-4"></div>
-      </section>
+  <!-- Suivi -->
+  <div id="suivi" class="tab card hidden">
+    <h2 class="text-xl font-semibold mb-4">📊 Suivi mensuel</h2>
+    <canvas id="chartSuivi" class="w-full h-64"></canvas>
+  </div>
 
-      <section class="card">
-        <h3 class="text-lg font-semibold mb-3">Prévisions 12 mois (saisonnalité simple)</h3>
-        <canvas id="simChart" height="160"></canvas>
-      </section>
+  <script>
+    let locations = JSON.parse(localStorage.getItem("locations")) || [];
+    let params = JSON.parse(localStorage.getItem("params")) || { assurance:54, connect:25 };
 
-      <section class="card">
-        <h3 class="text-lg font-semibold mb-3">Grille de prix conseillés (lun→dim)</h3>
-        <div id="priceGrid" class="grid grid-cols-2 md:grid-cols-7 gap-2"></div>
-        <div class="hint mt-2">Bas semaine agressif, week-end plus haut. Ajuste selon concurrence & remplissage.</div>
-      </section>
-    </section>
-
-    <!-- SUIVI -->
-    <section id="tab-suivi" class="hidden space-y-6">
-      <section class="grid-cards">
-        <div class="card">
-          <h2 class="text-xl font-semibold mb-3">Résumé mois sélectionné</h2>
-          <div id="monthSummary" class="space-y-2"></div>
-        </div>
-        <div class="card">
-          <h2 class="text-xl font-semibold mb-3">Résultat par mois (net après frais fixes)</h2>
-          <canvas id="barMonthly" height="140"></canvas>
-        </div>
-        <div class="card">
-          <h2 class="text-xl font-semibold mb-3">Cumul annuel (net après frais fixes)</h2>
-          <canvas id="lineCumul" height="140"></canvas>
-        </div>
-      </section>
-    </section>
-  </main>
-
-  <footer class="max-w-7xl mx-auto px-4 py-8 text-center text-xs text-slate-500">
-    Fait pour César – Données stockées localement · Pense à Exporter JSON/CSV avant de changer d'appareil
-  </footer>
-
-<script>
-const KEY_SETTINGS='roi_settings_v2';
-const KEY_RENTALS='roi_rentals_v2';
-const LEGACY_SETTINGS='roi_settings';
-const LEGACY_RENTALS='roi_rentals';
-function loadJSON(k,f){ try{const v=localStorage.getItem(k); return v?JSON.parse(v):f;}catch(_){return f;} }
-function saveJSON(k,d){ localStorage.setItem(k, JSON.stringify(d)); }
-
-let settings = loadJSON(KEY_SETTINGS, loadJSON(LEGACY_SETTINGS, {
-  commission:10, fix_assurance:54, fix_connect:25, fix_entretien:45, wear_per_km:0.12, km_inclus:100,
-  disc2:15, disc7:25, disc30:40, mult_loc:1.96
-}));
-let rentals = loadJSON(KEY_RENTALS, loadJSON(LEGACY_RENTALS, []));
-
-// Tabs
-const tabs = document.querySelectorAll('nav .tab');
-const sections = {
-  locations: document.getElementById('tab-locations'),
-  parametres: document.getElementById('tab-parametres'),
-  previsions: document.getElementById('tab-previsions'),
-  suivi: document.getElementById('tab-suivi'),
-};
-tabs.forEach(t=>t.addEventListener('click', ()=>{
-  tabs.forEach(x=>x.classList.remove('active')); t.classList.add('active');
-  Object.values(sections).forEach(s=>s.classList.add('hidden'));
-  const k=t.getAttribute('data-tab'); sections[k].classList.remove('hidden');
-  if(k==='suivi'){ renderAll(); }
-  if(k==='previsions'){ runSimulation(); buildPriceGrid(); }
-}));
-
-// Helpers
-const q=id=>document.getElementById(id);
-function monthStr(d){ const dt=new Date(d); return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0'); }
-function euro(n){ return (n||0).toFixed(2)+' €'; }
-
-// Paramètres UI
-['commission','fix_assurance','fix_connect','fix_entretien','wear_per_km','km_inclus','disc2','disc7','disc30','mult_loc'].forEach(id=>{
-  const el=q(id); if(!el) return; el.value = settings[id] ?? el.value;
-});
-q('saveSettings').addEventListener('click',()=>{
-  ['commission','fix_assurance','fix_connect','fix_entretien','wear_per_km','km_inclus','disc2','disc7','disc30','mult_loc'].forEach(id=>{
-    const el=q(id); settings[id]=Number(el.value||0);
-  });
-  saveJSON(KEY_SETTINGS, settings);
-  q('settingsSaved').classList.remove('hidden');
-  setTimeout(()=>q('settingsSaved').classList.add('hidden'),1500);
-  renderAll(); buildPriceGrid();
-});
-
-// Locations CRUD
-const form=q('rentalForm'); let editId=null;
-form.addEventListener('submit',(e)=>{
-  e.preventDefault();
-  const start=q('startDate').value; if(!start) return alert('Choisis une date');
-  const r={
-    id: editId ?? (crypto.randomUUID?crypto.randomUUID():String(Date.now())),
-    start, days:Number(q('days').value||1),
-    pricePerDay:Number(q('pricePerDay').value||0),
-    kms: q('kms').value?Number(q('kms').value):null,
-    extraCosts:Number(q('extraCosts').value||0),
-    notes:q('notes').value||''
-  };
-  if(editId){ rentals=rentals.map(x=>x.id===editId?r:x); editId=null; } else { rentals.push(r); }
-  saveJSON(KEY_RENTALS, rentals);
-  form.reset(); renderAll();
-});
-
-const filterMonthEl=q('filterMonth');
-q('clearFilter').addEventListener('click',()=>{ filterMonthEl.value=''; renderAll(); });
-
-const tableBody=q('rentalTable');
-function netForRental(r){
-  const com=(settings.commission||0)/100;
-  const gross=r.pricePerDay*r.days;
-  const after=gross*(1-com);
-  const wear=r.kms ? r.kms*(settings.wear_per_km||0) : 0;
-  return after - (r.extraCosts||0) - wear;
-}
-function renderTable(){
-  tableBody.innerHTML='';
-  const filter=filterMonthEl.value;
-  const arr=rentals.slice().sort((a,b)=> new Date(b.start)-new Date(a.start)).filter(r=>!filter||monthStr(r.start)===filter);
-  for(const r of arr){
-    const tr=document.createElement('tr'); tr.className='border-t border-slate-200';
-    const net=netForRental(r);
-    tr.innerHTML=`
-      <td class="py-2">${r.start}</td>
-      <td>${r.days}</td>
-      <td>${r.pricePerDay.toFixed(2)}</td>
-      <td>${r.kms??'-'}</td>
-      <td>${(r.extraCosts||0).toFixed(2)}</td>
-      <td><span class="pill ${net>=0?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-700'}">${net.toFixed(2)} €</span></td>
-      <td class="max-w-[280px] truncate" title="${r.notes??''}">${r.notes??''}</td>
-      <td class="text-right">
-        <button class="btn btn-ghost" data-edit="${r.id}">Éditer</button>
-        <button class="btn btn-ghost" data-del="${r.id}">Supprimer</button>
-      </td>`;
-    tableBody.appendChild(tr);
-  }
-  tableBody.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>{
-    const id=b.getAttribute('data-edit'); const r=rentals.find(x=>x.id===id); if(!r) return;
-    editId=id; q('startDate').value=r.start; q('days').value=r.days; q('pricePerDay').value=r.pricePerDay;
-    q('kms').value=r.kms??''; q('extraCosts').value=r.extraCosts??0; q('notes').value=r.notes??'';
-    window.scrollTo({top:form.getBoundingClientRect().top+window.scrollY-100,behavior:'smooth'});
-  }));
-  tableBody.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{
-    const id=b.getAttribute('data-del'); if(confirm('Supprimer ?')){
-      rentals=rentals.filter(x=>x.id!==id); saveJSON(KEY_RENTALS, rentals); renderAll();
+    function showTab(id) {
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.add('hidden'));
+      document.getElementById(id).classList.remove('hidden');
+      if(id==="suivi") renderChart();
     }
-  }));
-}
 
-// Suivi
-const monthSummary=q('monthSummary'); let barChart,lineChart;
-function groupByMonth(arr){ const m={}; for(const r of arr){ const k=monthStr(r.start); (m[k]=m[k]||[]).push(r); } return m; }
-function renderSummaryAndCharts(){
-  const byM=groupByMonth(rentals);
-  const months=Object.keys(byM).sort();
-  const monthlyBefore=months.map(m=> byM[m].reduce((s,r)=> s+netForRental(r),0));
-  const fix=months.map(_=> (settings.fix_assurance||0)+(settings.fix_connect||0)+(settings.fix_entretien||0));
-  const monthlyAfter=monthlyBefore.map((v,i)=> v - fix[i]);
+    document.getElementById("locationForm").addEventListener("submit", e=>{
+      e.preventDefault();
+      const loc = {
+        date: document.getElementById("date").value,
+        revenu: +document.getElementById("revenu").value,
+        commission: +document.getElementById("commission").value,
+        carburant: +document.getElementById("carburant").value || 0
+      };
+      locations.push(loc);
+      localStorage.setItem("locations", JSON.stringify(locations));
+      renderLocations();
+    });
 
-  const fm=filterMonthEl.value || (months[months.length-1]??null);
-  if(fm){
-    const arr=byM[fm]||[];
-    const before=arr.reduce((s,r)=> s+netForRental(r),0);
-    const f=(settings.fix_assurance||0)+(settings.fix_connect||0)+(settings.fix_entretien||0);
-    const after=before - f;
-    const ok=after>=0;
-    monthSummary.innerHTML=`
-      <div class="grid grid-cols-2 gap-3">
-        <div class="p-3 rounded-xl bg-indigo-50">
-          <div class="text-xs text-slate-500">Revenus nets (avant frais fixes)</div>
-          <div class="text-2xl font-semibold">${before.toFixed(2)} €</div>
-        </div>
-        <div class="p-3 rounded-xl bg-amber-50">
-          <div class="text-xs text-slate-500">Frais fixes du mois</div>
-          <div class="text-2xl font-semibold">-${f.toFixed(2)} €</div>
-        </div>
-        <div class="p-3 rounded-xl ${ok?'bg-emerald-100 text-emerald-800':'bg-red-100 text-red-800'} col-span-2">
-          <div class="text-xs">Résultat net du mois</div>
-          <div class="text-2xl font-bold">${after.toFixed(2)} €</div>
-        </div>
-      </div>`;
-    filterMonthEl.value=fm;
-  } else {
-    monthSummary.innerHTML='<div class="text-slate-500 text-sm">Aucune donnée. Ajoute une location.</div>';
-  }
-
-  if(barChart){barChart.destroy()} if(lineChart){lineChart.destroy()}
-  const ctxB=document.getElementById('barMonthly').getContext('2d');
-  barChart=new Chart(ctxB,{type:'bar',data:{labels:months,datasets:[{label:'Net après frais fixes (€)',data:monthlyAfter,backgroundColor:monthlyAfter.map(v=>v>=0?'rgba(16,185,129,.85)':'rgba(239,68,68,.85)')}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(2)} €`}}},scales:{y:{beginAtZero:true}}}});
-  const cum=[]; let acc=0; for(const v of monthlyAfter){ acc+=v; cum.push(acc); }
-  const ctxL=document.getElementById('lineCumul').getContext('2d');
-  lineChart=new Chart(ctxL,{type:'line',data:{labels:months,datasets:[{label:'Cumul annuel (€)',data:cum,fill:false,borderColor:'rgba(79,70,229,.9)',tension:.3,pointRadius:3}]},options:{plugins:{legend:{display:false}}}});
-}
-filterMonthEl.addEventListener('change',renderAll);
-
-// Prévisions
-const simDays=q('sim_days'), simPrice=q('sim_price'), simKm=q('sim_km_day'), simSeason=q('sim_season');
-const simResult=q('simResult'); let simChart;
-function pointMortJours(price, kmday){
-  const com=(settings.commission||0)/100;
-  const netPerDay = price*(1-com) - (kmday*(settings.wear_per_km||0));
-  const fix=(settings.fix_assurance||0)+(settings.fix_connect||0)+(settings.fix_entretien||0);
-  if(netPerDay<=0) return Infinity; return fix/netPerDay;
-}
-function runSimulation(){
-  const days=Number(simDays?.value||0);
-  const price=Number(simPrice?.value||0);
-  const kmday=Number(simKm?.value||0);
-  const season=Number(simSeason?.value||100)/100;
-
-  const com=(settings.commission||0)/100;
-  const monthlyGross=price*days;
-  const after=monthlyGross*(1-com);
-  const wear=(kmday*days)*(settings.wear_per_km||0);
-  const fix=(settings.fix_assurance||0)+(settings.fix_connect||0)+(settings.fix_entretien||0);
-  const net=(after - wear - fix) * season;
-
-  if(simResult){
-    simResult.innerHTML=`
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div class="p-3 rounded-xl bg-indigo-50">
-          <div class="text-xs text-slate-500">Net avant frais fixes</div>
-          <div class="text-xl font-semibold">${(after-wear).toFixed(2)} €</div>
-        </div>
-        <div class="p-3 rounded-xl bg-amber-50">
-          <div class="text-xs text-slate-500">Frais fixes</div>
-          <div class="text-xl font-semibold">-${fix.toFixed(2)} €</div>
-        </div>
-        <div class="p-3 rounded-xl ${net>=0?'bg-emerald-100 text-emerald-800':'bg-red-100 text-red-800'}">
-          <div class="text-xs">Résultat net (après saison.)</div>
-          <div class="text-xl font-bold">${net.toFixed(2)} €</div>
-        </div>
-        <div class="p-3 rounded-xl bg-slate-100">
-          <div class="text-xs">Point mort</div>
-          <div class="text-xl font-semibold">${ pointMortJours(price, kmday).toFixed(1) } jours</div>
-        </div>
-      </div>`;
-  }
-
-  const months=['01','02','03','04','05','06','07','08','09','10','11','12'];
-  const seasonCurve=[0.85,0.8,0.9,1.0,1.05,1.15,1.3,1.25,1.0,0.95,0.85,0.9];
-  const base=(after - wear - fix);
-  const data=months.map((_,i)=> base * seasonCurve[i]);
-
-  if(simChart){ simChart.destroy(); }
-  const canvas=document.getElementById('simChart');
-  if(canvas){
-    const ctx=canvas.getContext('2d');
-    simChart=new Chart(ctx,{type:'bar',data:{labels:months,datasets:[{label:'Prévision nette mensuelle (€)',data,backgroundColor:data.map(v=>v>=0?'rgba(16,185,129,.85)':'rgba(239,68,68,.85)')}]} ,options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(2)} €`}}},scales:{y:{beginAtZero:true}}}});
-  }
-}
-q('runSim')?.addEventListener('click',()=>{ runSimulation(); q('simSaved').classList.remove('hidden'); setTimeout(()=>q('simSaved').classList.add('hidden'),1200); });
-
-function buildPriceGrid(){
-  const grid=q('priceGrid'); if(!grid) return;
-  grid.innerHTML='';
-  const base=Number(simPrice?.value||settings.basePrice||30);
-  const days=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
-  const coefs=[-5, -3, 0, +8, +15, +10, +5];
-  days.forEach((d,idx)=>{
-    const p = base * (1 + coefs[idx]/100);
-    const loc = p * (settings.mult_loc||1.96);
-    const card=document.createElement('div');
-    card.className='p-3 rounded-xl bg-white border border-slate-200';
-    card.innerHTML=`
-      <div class="text-sm text-slate-500">${d}</div>
-      <div class="text-2xl font-bold">${p.toFixed(2)} € <span class="pill bg-indigo-100 text-indigo-800 ml-2">proprio</span></div>
-      <div class="text-sm text-slate-600">≈ ${loc.toFixed(0)} € affiché locataire</div>`;
-    grid.appendChild(card);
-  });
-}
-
-// Export / Import / CSV
-document.getElementById('exportBtn').addEventListener('click',()=>{
-  const data={settings, rentals};
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download=`roi-data-${new Date().toISOString().slice(0,10)}.json`;
-  document.body.appendChild(a); a.click();
-  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
-});
-document.getElementById('importInput').addEventListener('change',e=>{
-  const f=e.target.files?.[0]; if(!f)return;
-  const r=new FileReader();
-  r.onload=()=>{
-    try{
-      const d=JSON.parse(r.result);
-      if(d.settings){ settings=Object.assign({},settings,d.settings); saveJSON(KEY_SETTINGS,settings); }
-      if(Array.isArray(d.rentals)){ rentals=d.rentals; saveJSON(KEY_RENTALS,rentals); }
-      ['commission','fix_assurance','fix_connect','fix_entretien','wear_per_km','km_inclus','disc2','disc7','disc30','mult_loc'].forEach(id=>{
-        const el=q(id); if(el && settings[id]!=null) el.value=settings[id];
+    function renderLocations(){
+      const list = document.getElementById("locationList");
+      list.innerHTML="";
+      locations.forEach((l,i)=>{
+        const li=document.createElement("li");
+        li.textContent=`${l.date} - Net: ${l.revenu - l.commission - l.carburant}€`;
+        list.appendChild(li);
       });
-      renderAll(); runSimulation(); buildPriceGrid();
-      alert('Import réussi ✅');
-    }catch(_){ alert('Fichier invalide ❌'); }
-  };
-  r.readAsText(f);
-});
-document.getElementById('exportCsvBtn').addEventListener('click',()=>{
-  const rows=[['id','start','days','pricePerDay','kms','extraCosts','net','notes']];
-  rentals.forEach(r=> rows.push([r.id,r.start,r.days,r.pricePerDay,(r.kms??''),(r.extraCosts??0),netForRental(r).toFixed(2),(r.notes??'')]));
-  const csv=rows.map(row=> row.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='locations.csv';
-  document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
-});
+    }
+    renderLocations();
 
-// Initial render
-function renderAll(){ renderTable(); renderSummaryAndCharts(); }
-renderAll(); runSimulation(); buildPriceGrid();
-</script>
+    function saveParams(){
+      params.assurance = +document.getElementById("assurance").value;
+      params.connect = +document.getElementById("connect").value;
+      localStorage.setItem("params", JSON.stringify(params));
+      alert("✅ Paramètres sauvegardés !");
+    }
+
+    function calcPrevision(){
+      let prix = +document.getElementById("prixProprio").value;
+      let jours = +document.getElementById("joursEstim").value;
+      let brut = prix*jours;
+      let fixe = params.assurance+params.connect;
+      let net = brut-fixe;
+      document.getElementById("previsionRes").textContent=
+        `Prévision brute: ${brut}€, Frais fixes: ${fixe}€, Net: ${net}€`;
+    }
+
+    function renderChart(){
+      const ctx=document.getElementById("chartSuivi").getContext("2d");
+      const monthly = {};
+      locations.forEach(l=>{
+        let m=l.date.slice(0,7);
+        monthly[m]=(monthly[m]||0)+(l.revenu-l.commission-l.carburant);
+      });
+      new Chart(ctx,{type:"bar",
+        data:{labels:Object.keys(monthly),
+          datasets:[{label:"Revenus nets",data:Object.values(monthly),backgroundColor:"#3b82f6"}]
+        }
+      });
+    }
+  </script>
 </body>
 </html>
