@@ -1,588 +1,173 @@
-<!doctype html>
+
+<!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Tableau de bord rentabilité — Flotte Getaround/Turo</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mon Dashboard ROI – Simple & Clair</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    html,body,#root{height:100%}
-    .mono{font-variant-numeric: tabular-nums}
-    .tab-btn{padding:.5rem 1rem;border-radius:9999px}
-    .tab-active{background:#111827;color:white}
-    .tab-inactive{background:#f3f4f6;color:#111827}
-    .hint{font-size:.75rem;color:#6b7280}
+    :root {
+      --c-primary: #4f46e5;
+      --c-secondary: #10b981;
+      --c-accent: #f59e0b;
+      --c-danger: #ef4444;
+      --bg-soft: #f8fafc;
+    }
+    body { background: var(--bg-soft); }
+    .card { background:#fff; border-radius:1rem; box-shadow:0 8px 24px rgba(2,6,23,.06); padding:1rem; }
+    .btn { padding:.5rem .75rem; border-radius:.75rem; font-weight:600; }
+    .btn-primary { color:#fff; background:var(--c-primary); }
+    .btn-secondary { color:#fff; background:var(--c-secondary); }
+    .btn-ghost { background:#eef2f7; color:#0f172a; }
+    .input { width:100%; border:1px solid #cbd5e1; border-radius:.75rem; padding:.5rem .75rem; background:#fff; }
+    .grid-cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap:1rem; }
+    .pill { font-size:.75rem; font-weight:700; padding:.25rem .5rem; border-radius:999px; }
   </style>
-  <link rel="icon" href="favicon.ico"/>
 </head>
-<body class="bg-neutral-50 text-neutral-900">
-  <div id="root"></div>
+<body class="min-h-screen">
+  <header class="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-slate-200">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <div class="flex items-center gap-3">
+        <div class="h-8 w-8 rounded-xl flex items-center justify-center text-white" style="background:var(--c-primary)">🚗</div>
+        <h1 class="text-lg font-bold">Dashboard ROI – Clio 5</h1>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button id="exportBtn" class="btn btn-ghost">Exporter JSON</button>
+        <label class="btn btn-ghost cursor-pointer">
+          Importer JSON
+          <input id="importInput" type="file" accept="application/json" class="hidden"/>
+        </label>
+      </div>
+    </div>
+  </header>
 
-  <!-- React UMD -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+  <main class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+    <section class="card">
+      <h2 class="text-xl font-semibold mb-4">Paramètres généraux</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div><label class="text-sm text-slate-600">Commission plateforme (%)</label><input id="commission" type="number" class="input" min="0" max="50" step="0.1" value="10"/></div>
+        <div><label class="text-sm text-slate-600">Assurance mensuelle (€)</label><input id="fix_assurance" type="number" class="input" min="0" step="1" value="54"/></div>
+        <div><label class="text-sm text-slate-600">Connect mensuel (€)</label><input id="fix_connect" type="number" class="input" min="0" step="1" value="25"/></div>
+        <div><label class="text-sm text-slate-600">Entretien provision (€)</label><input id="fix_entretien" type="number" class="input" min="0" step="1" value="45"/></div>
+        <div><label class="text-sm text-slate-600">Usure €/km</label><input id="wear_per_km" type="number" class="input" min="0" step="0.01" value="0.12"/></div>
+        <div><label class="text-sm text-slate-600">Km inclus / jour</label><input id="km_inclus" type="number" class="input" min="0" step="1" value="100"/></div>
+      </div>
+      <div class="mt-3"><button id="saveSettings" class="btn btn-primary">Enregistrer paramètres</button> <span id="settingsSaved" class="text-sm text-slate-500 hidden">✔️ Sauvegardé</span></div>
+    </section>
 
-  <!-- Recharts UMD -->
-  <script src="https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/Recharts.min.js"></script>
-  <script>if(!window.Recharts){var s=document.createElement('script');s.src='https://unpkg.com/recharts@2.12.7/umd/Recharts.min.js';document.head.appendChild(s);}</script>
+    <section class="card">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-semibold">Locations (ajout & édition)</h2>
+        <div class="flex gap-2">
+          <input id="filterMonth" type="month" class="input !w-auto"/>
+          <button id="clearFilter" class="btn btn-ghost">Effacer filtre</button>
+        </div>
+      </div>
 
-  <script>
-  function startApp(){
-    if(!window.React || !window.ReactDOM || !window.Recharts){ return setTimeout(startApp, 50); }
+      <form id="rentalForm" class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+        <div class="md:col-span-2"><label class="text-sm text-slate-600">Début</label><input id="startDate" type="date" class="input"/></div>
+        <div><label class="text-sm text-slate-600">Jours</label><input id="days" type="number" class="input" min="1" value="1"/></div>
+        <div><label class="text-sm text-slate-600">Prix proprio €/jour</label><input id="pricePerDay" type="number" class="input" min="0" step="0.1" value="30"/></div>
+        <div><label class="text-sm text-slate-600">Km totaux (optionnel)</label><input id="kms" type="number" class="input" min="0" step="1" placeholder="ex. 250"/></div>
+        <div class="md:col-span-2"><label class="text-sm text-slate-600">Frais carburant & divers (€) (optionnel)</label><input id="extraCosts" type="number" class="input" min="0" step="0.1" value="0"/></div>
+        <div class="md:col-span-4"><label class="text-sm text-slate-600">Notes</label><input id="notes" type="text" class="input" placeholder="Ex. week-end, locataire pro, etc."/></div>
+        <div class="md:col-span-2"><button class="btn btn-secondary w-full" type="submit">Ajouter la location</button></div>
+      </form>
 
-    const { useState, useMemo, useEffect } = React;
-    const { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } = Recharts;
-    const fmtEUR = n => (Number(n)||0).toLocaleString('fr-FR', { style:'currency', currency:'EUR' });
-    const clamp = (v,min,max)=> Math.max(min, Math.min(max,v));
+      <div class="mt-6 overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead><tr class="text-left text-slate-600"><th class="py-2">Début</th><th>Jours</th><th>€/jour</th><th>Km</th><th>Extras €</th><th>Net location €</th><th>Notes</th><th></th></tr></thead>
+          <tbody id="rentalTable" class="align-top"></tbody>
+        </table>
+      </div>
+    </section>
 
-    // --------- PÉRIODE FIXE : 14 août 2025 -> 14 août 2026 ----------
-    const PERIOD_START = new Date(Date.UTC(2025,7,14)); // 2025-08-14 UTC
-    const PERIOD_END   = new Date(Date.UTC(2026,7,14)); // exclusif
-    // pour l'arithmétique par jours, on prend un "end inclusif"
-    const PERIOD_END_INCL = new Date(PERIOD_END.getTime() - 24*3600*1000);
+    <section class="grid-cards">
+      <div class="card">
+        <h2 class="text-xl font-semibold mb-3">Résumé mois sélectionné</h2>
+        <div id="monthSummary" class="space-y-2"></div>
+      </div>
+      <div class="card">
+        <h2 class="text-xl font-semibold mb-3">Résultat par mois (net après frais fixes)</h2>
+        <canvas id="barMonthly" height="140"></canvas>
+      </div>
+      <div class="card">
+        <h2 class="text-xl font-semibold mb-3">Cumul annuel (net après frais fixes)</h2>
+        <canvas id="lineCumul" height="140"></canvas>
+      </div>
+    </section>
+  </main>
 
-    // Storage
-    const LS_VEH='roi-veh-v1', LS_BOOK='roi-bookings-v3';
-    const OLD_KEYS_VEH=['roi-getaround-vehicles-v11','roi-getaround-vehicles-v10','roi-getaround-vehicles-v9','roi-getaround-vehicles-v8'];
-    const OLD_KEYS_BOOK=['roi-bookings-v2','roi-bookings-v1'];
+  <footer class="max-w-6xl mx-auto px-4 py-8 text-center text-xs text-slate-500">
+    Fait pour César – Données stockées localement · Pense à Exporter JSON avant de changer d'appareil
+  </footer>
 
-    const MONTHS=['Jan','Fev','Mar','Avr','Mai','Jun','Jul','Aou','Sep','Oct','Nov','Dec'];
-    const toDate = s=>{const [y,m,d]=s.split('-').map(Number);return new Date(Date.UTC(y,m-1,d));}
-    const daysBetweenIncl=(a,b)=>Math.floor((b-a)/(24*3600*1000))+1;
-    const daysInMonthUTC=(y,m)=> new Date(Date.UTC(y,m+1,0)).getUTCDate();
-    const labelMonth=(y,m)=>`${MONTHS[m]} ${y}`;
+<script>
+const KEY_SETTINGS='roi_settings_v2'; const KEY_RENTALS='roi_rentals_v2';
+function loadJSON(k,f){try{const v=localStorage.getItem(k);return v?JSON.parse(v):f}catch(e){return f}}
+function saveJSON(k,d){localStorage.setItem(k,JSON.stringify(d))}
 
-    // Segments mensuels entre deux dates (avec jours "actifs" ce mois)
-    function monthSegmentsBetween(start,endIncl){
-      const out=[];
-      let y=start.getUTCFullYear(), m=start.getUTCMonth(), d=start.getUTCDate();
-      let cur=new Date(Date.UTC(y,m,d));
-      while(cur<=endIncl){
-        const year=cur.getUTCFullYear(), month=cur.getUTCMonth();
-        const dim=daysInMonthUTC(year,month);
-        const monthStart=new Date(Date.UTC(year,month,1));
-        const monthEnd=new Date(Date.UTC(year,month,dim));
-        const segStart = cur > monthStart ? cur : monthStart;
-        const segEnd   = endIncl < monthEnd ? endIncl : monthEnd;
-        const activeDays = daysBetweenIncl(segStart, segEnd);
-        out.push({year,month,activeDays,daysInMonth:dim,ratio:activeDays/dim,label:labelMonth(year,month)});
-        // next month first day
-        cur = new Date(Date.UTC(year, month+1, 1));
-      }
-      return out;
-    }
+let settings=loadJSON(KEY_SETTINGS,{commission:10,fix_assurance:54,fix_connect:25,fix_entretien:45,wear_per_km:0.12,km_inclus:100});
+let rentals=loadJSON(KEY_RENTALS,[]);
 
-    // Export/Import
-    function download(filename, text){
-      const blob=new Blob([text],{type:'application/json'});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click();
-      setTimeout(()=>{URL.revokeObjectURL(url); a.remove();},0);
-    }
+const q=id=>document.getElementById(id);
+function applySettings(){q('commission').value=settings.commission;q('fix_assurance').value=settings.fix_assurance;q('fix_connect').value=settings.fix_connect;q('fix_entretien').value=settings.fix_entretien;q('wear_per_km').value=settings.wear_per_km;q('km_inclus').value=settings.km_inclus;}
+applySettings();
 
-    function App(){
-      // --- Véhicules (commission Clio 10 % + Connect 25 €) ---
-      const clio={
-        id:'clio-2021', name:'Clio 5 Limited SCE 65 (2021)', purchasePrice:10890, dailyPrice:42,
-        commissionRate:0.10, daysPerMonth:15, insuranceMonthly:54, connectMonthly:25, parkingMonthly:0,
-        otherMonthly:0, maintenanceAnnual:600, active:true, useSeasonality:true,
-        seasonality:[12,12,14,15,16,18,20,19,16,14,13,18] // Jan..Dec
-      };
-      const tesla={
-        id:'tesla-2022', name:'Tesla Model 3 Propulsion (2022)', purchasePrice:39000, dailyPrice:75,
-        commissionRate:0.275, daysPerMonth:10, insuranceMonthly:115, connectMonthly:0, parkingMonthly:0,
-        otherMonthly:375, maintenanceAnnual:500, active:true, useSeasonality:false,
-        seasonality:new Array(12).fill(10)
-      };
+q('saveSettings').addEventListener('click',()=>{settings.commission=Number(q('commission').value||0);settings.fix_assurance=Number(q('fix_assurance').value||0);settings.fix_connect=Number(q('fix_connect').value||0);settings.fix_entretien=Number(q('fix_entretien').value||0);settings.wear_per_km=Number(q('wear_per_km').value||0);settings.km_inclus=Number(q('km_inclus').value||0);saveJSON(KEY_SETTINGS,settings);q('settingsSaved').classList.remove('hidden');setTimeout(()=>q('settingsSaved').classList.add('hidden'),1500);renderAll();});
 
-      const [vehicles,setVehicles]=useState(()=>{
-        try{
-          const raw=localStorage.getItem(LS_VEH);
-          if(raw) return JSON.parse(raw);
-          for(const k of OLD_KEYS_VEH){ const r=localStorage.getItem(k); if(r) return JSON.parse(r); }
-        }catch(e){}
-        return [clio,tesla];
-      });
-      const [selected,setSelected]=useState(vehicles[0]?.id||'');
+const form=q('rentalForm'); let editId=null;
+form.addEventListener('submit',e=>{e.preventDefault();const start=q('startDate').value;if(!start){alert('Choisis une date de début');return}const r={id:editId??crypto.randomUUID(),start,days:Number(q('days').value||1),pricePerDay:Number(q('pricePerDay').value||0),kms:q('kms').value?Number(q('kms').value):null,extraCosts:Number(q('extraCosts').value||0),notes:q('notes').value||''};if(editId){rentals=rentals.map(x=>x.id===editId?r:x);editId=null}else{rentals.push(r)}saveJSON(KEY_RENTALS,rentals);form.reset();renderAll();});
 
-      const [bookings,setBookings]=useState(()=>{
-        try{
-          const raw=localStorage.getItem(LS_BOOK);
-          if(raw) return JSON.parse(raw);
-          for(const k of OLD_KEYS_BOOK){ const r=localStorage.getItem(k); if(r) return JSON.parse(r); }
-        }catch(e){}
-        return [];
-      });
+q('clearFilter').addEventListener('click',()=>{q('filterMonth').value='';renderAll();});
 
-      useEffect(()=>{ localStorage.setItem(LS_VEH,JSON.stringify(vehicles)); },[vehicles]);
-      useEffect(()=>{ localStorage.setItem(LS_BOOK,JSON.stringify(bookings)); },[bookings]);
-      useEffect(()=>{ if(!vehicles.find(v=>v.id===selected)&&vehicles.length){ setSelected(vehicles[0].id);} },[vehicles,selected]);
+const tableBody=q('rentalTable');
+function monthStr(d){const dt=new Date(d);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');}
+function netForRental(r){const commissionRate=(settings.commission||0)/100;const gross=r.pricePerDay*r.days;const after=gross*(1-commissionRate);const wear=r.kms?r.kms*(settings.wear_per_km||0):0;return after-(r.extraCosts||0)-wear;}
 
-      const v=vehicles.find(x=>x.id===selected);
+function renderTable(){tableBody.innerHTML='';const filter=q('filterMonth').value;const arr=rentals.slice().sort((a,b)=>new Date(b.start)-new Date(a.start)).filter(r=>!filter||monthStr(r.start)===filter);for(const r of arr){const tr=document.createElement('tr');tr.className='border-t border-slate-200';const net=netForRental(r);tr.innerHTML=`
+<td class="py-2">${r.start}</td>
+<td>${r.days}</td>
+<td>${r.pricePerDay.toFixed(2)}</td>
+<td>${r.kms??'-'}</td>
+<td>${(r.extraCosts||0).toFixed(2)}</td>
+<td><span class="pill ${net>=0?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-700'}">${net.toFixed(2)} €</span></td>
+<td class="max-w-[240px] truncate" title="${r.notes??''}">${r.notes??''}</td>
+<td class="text-right">
+  <button class="btn btn-ghost" data-edit="${r.id}">Éditer</button>
+  <button class="btn btn-ghost" data-del="${r.id}">Supprimer</button>
+</td>`;tableBody.appendChild(tr);}tableBody.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>{const id=b.getAttribute('data-edit');const r=rentals.find(x=>x.id===id);if(!r)return;editId=id;q('startDate').value=r.start;q('days').value=r.days;q('pricePerDay').value=r.pricePerDay;q('kms').value=r.kms??'';q('extraCosts').value=r.extraCosts??0;q('notes').value=r.notes??'';window.scrollTo({top:form.getBoundingClientRect().top+window.scrollY-100,behavior:'smooth'});}));tableBody.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{const id=b.getAttribute('data-del');if(confirm('Supprimer cette location ?')){rentals=rentals.filter(x=>x.id!==id);saveJSON(KEY_RENTALS,rentals);renderAll();}}));}
 
-      // Commission auto par plateforme
-      const PLATFORM_COMMISSION={ getaround:0.10, turo:0.25, direct:0.00, autre:0.10 };
+const monthSummary=q('monthSummary'); let barChart,lineChart;
+function groupByMonth(arr){const m={};for(const r of arr){const k=monthStr(r.start);(m[k]=m[k]||[]).push(r);}return m;}
+function renderSummaryAndCharts(){const byM=groupByMonth(rentals);const months=Object.keys(byM).sort();const monthlyBefore=months.map(m=>byM[m].reduce((s,r)=>s+netForRental(r),0));const fix=months.map(_=>(settings.fix_assurance||0)+(settings.fix_connect||0)+(settings.fix_entretien||0));const monthlyAfter=monthlyBefore.map((v,i)=>v-fix[i]);const fm=q('filterMonth').value||(months[months.length-1]??null);if(fm){const arr=byM[fm]||[];const before=arr.reduce((s,r)=>s+netForRental(r),0);const f=(settings.fix_assurance||0)+(settings.fix_connect||0)+(settings.fix_entretien||0);const after=before-f;const ok=after>=0;monthSummary.innerHTML=`
+  <div class="grid grid-cols-2 gap-3">
+    <div class="p-3 rounded-xl bg-indigo-50">
+      <div class="text-xs text-slate-500">Revenus nets (avant frais fixes)</div>
+      <div class="text-2xl font-semibold">${before.toFixed(2)} €</div>
+    </div>
+    <div class="p-3 rounded-xl bg-amber-50">
+      <div class="text-xs text-slate-500">Frais fixes du mois</div>
+      <div class="text-2xl font-semibold">-${f.toFixed(2)} €</div>
+    </div>
+    <div class="p-3 rounded-xl ${ok?'bg-emerald-100 text-emerald-800':'bg-red-100 text-red-800'} col-span-2">
+      <div class="text-xs">Résultat net du mois</div>
+      <div class="text-2xl font-bold">${after.toFixed(2)} €</div>
+    </div>
+  </div>`;q('filterMonth').value=fm;}else{monthSummary.innerHTML='<div class="text-slate-500 text-sm">Aucune donnée pour le moment. Ajoute une location.</div>';}
+  if(barChart){barChart.destroy()} if(lineChart){lineChart.destroy()}
+  const ctxB=document.getElementById('barMonthly').getContext('2d');barChart=new Chart(ctxB,{type:'bar',data:{labels:months,datasets:[{label:'Net après frais fixes (€)',data:monthlyAfter,backgroundColor:monthlyAfter.map(v=>v>=0?'rgba(16,185,129,.8)':'rgba(239,68,68,.8)')}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(2)} €`}}},scales:{y:{beginAtZero:true}}}});
+  const cum=[];let acc=0;for(const v of monthlyAfter){acc+=v;cum.push(acc)} const ctxL=document.getElementById('lineCumul').getContext('2d');lineChart=new Chart(ctxL,{type:'line',data:{labels:months,datasets:[{label:'Cumul annuel (€)',data:cum,fill:false,borderColor:'rgba(79,70,229,.9)',tension:.3,pointRadius:3}]},options:{plugins:{legend:{display:false}}}});
+}
+q('filterMonth').addEventListener('change',renderAll);
 
-      // Prévisionnel proportionnel sur les segments de la période fixe
-      const periodSegments = monthSegmentsBetween(PERIOD_START, PERIOD_END_INCL); // ~12 segments
+function renderAll(){renderTable();renderSummaryAndCharts()}
+renderAll();
 
-      const calcPlan=(veh)=>{
-        const netPerDay=veh.dailyPrice*(1-veh.commissionRate);
-        const monthlyFixed = veh.insuranceMonthly + veh.connectMonthly + veh.parkingMonthly + veh.otherMonthly;
-        const monthlyMaint = veh.maintenanceAnnual/12;
-
-        const rows = periodSegments.map(seg=>{
-          const idx=seg.month; // 0..11
-          // base jours loués du mois (seasonality ou valeur fixe)
-          const baseDays = (veh.useSeasonality && Array.isArray(veh.seasonality) && veh.seasonality.length===12)
-            ? Number(veh.seasonality[idx]||0)
-            : Number(veh.daysPerMonth||0);
-          // on proportionne au nombre de jours "actifs" ce mois (ex : août 2025 = du 14 au 31)
-          const effDays = Math.round(baseDays * seg.ratio);
-          const rev = netPerDay * effDays;
-          const costs = (monthlyFixed + monthlyMaint) * seg.ratio; // coûts mensualisés proratisés
-          const prof = rev - costs;
-          return { mois: seg.label, idx: idx, Revenu: Math.round(rev), Couts: Math.round(costs), Profit: Math.round(prof) };
-        });
-
-        // cumul
-        let cum=0;
-        rows.forEach(r=>{ cum+=r.Profit; r.Cumul=Math.round(cum); });
-
-        const periodRevenue = rows.reduce((s,r)=>s+r.Revenu,0);
-        const periodCosts   = rows.reduce((s,r)=>s+r.Couts,0);
-        const periodProfit  = periodRevenue - periodCosts;
-
-        // seuil de rentabilité mensuel moyen (sur un mois "plein")
-        const breakevenDays = netPerDay>0 ? (monthlyFixed + monthlyMaint) / netPerDay : 0;
-
-        return { netPerDay, chart: rows, periodRevenue, periodCosts, periodProfit, breakevenDays };
-      };
-
-      // Normalisation d'une location (commission auto + carburant simplifié)
-      function normalizeBooking(b){
-        const veh=vehicles.find(x=>x.id===b.vehicleId);
-        if(!veh) return null;
-
-        // Commission: plateforme -> sinon véhicule
-        let commission=(b.platform && PLATFORM_COMMISSION[b.platform]!=null)?PLATFORM_COMMISSION[b.platform]:(veh.commissionRate||0);
-        commission=Math.max(0,Math.min(1,commission));
-
-        // Total auto si vide
-        let total=0;
-        if(b.totalAmount!=null && b.totalAmount!==''){ total=Number(b.totalAmount); }
-        else if(b.pricePerDay!=null && b.pricePerDay!=='' && b.start && b.end){
-          const days=daysBetweenIncl(toDate(b.start),toDate(b.end));
-          total=Number(b.pricePerDay)*days;
-        } else { return null; }
-
-        // Carburant simplifié
-        let fuel=0; const fuelAmount=Number(b.fuelAmount||0);
-        if(b.fuelMode==='facture') fuel=+fuelAmount;           // le client te paie
-        else if(b.fuelMode==='rembourse') fuel=-fuelAmount;    // tu rembourses
-
-        const extra=Number(b.extraFees||0);
-        const start=toDate(b.start), end=toDate(b.end);
-        const totalDays=daysBetweenIncl(start,end);
-        const net=total*(1-commission)-extra-fuel;
-
-        return {...b, commission, total:Number(total), extra:Number(extra), fuel:Number(fuel), net, start, end, totalDays};
-      }
-
-      // Somme des réels pour un véhicule, mais UNIQUEMENT la part dans la période fixe
-      function aggregateActualInPeriod(vehId){
-        let sumByMonth = new Map(); // idx mois -> €
-        bookings.filter(b=>b.vehicleId===vehId).forEach(b=>{
-          const nb=normalizeBooking(b); if(!nb) return;
-          // recadrer l'intervalle de la loc sur la période
-          const s = nb.start > PERIOD_START ? nb.start : PERIOD_START;
-          const e = nb.end   < PERIOD_END_INCL ? nb.end   : PERIOD_END_INCL;
-          if (s > e) return; // hors période
-          const overlapDays = daysBetweenIncl(s,e);
-          const prorata = overlapDays / nb.totalDays;
-          const netOverlap = nb.net * prorata;
-
-          // répartir par mois sur l'intervalle recadré
-          monthSegmentsBetween(s,e).forEach(seg=>{
-            const part = netOverlap * (seg.activeDays / overlapDays);
-            const prev = sumByMonth.get(seg.month) || 0;
-            sumByMonth.set(seg.month, prev + part);
-          });
-        });
-        return sumByMonth;
-      }
-
-      function compareVehicle(veh){
-        const plan = calcPlan(veh);
-        const actualMap = aggregateActualInPeriod(veh.id);
-
-        // On se base sur les mêmes segments "période"
-        const rows = periodSegments.map(seg=>{
-          const act = actualMap.get(seg.month) || 0;
-          const idx = seg.month;
-          const rPlan = plan.chart.find(x=>x.idx===idx);
-          const prevRev = rPlan ? rPlan.Revenu : 0;
-          const prevCost= rPlan ? rPlan.Couts  : 0;
-          return {
-            mois: seg.label,
-            Prev: prevRev,
-            Reel: Math.round(act),
-            Ecart: Math.round(act - prevRev),
-            Couts: prevCost,
-            ProfitPrev: rPlan ? rPlan.Profit : 0,
-            ProfitReel: Math.round(act - prevCost)
-          };
-        });
-
-        const sum = k => rows.reduce((s,a)=> s + (Number(a[k])||0), 0);
-        return {
-          rows,
-          kpis: {
-            prevRev: sum('Prev'),
-            actRev: sum('Reel'),
-            prevProfit: sum('ProfitPrev'),
-            actProfit: sum('ProfitReel'),
-            diffRev: sum('Reel') - sum('Prev'),
-            diffProfit: sum('ProfitReel') - sum('ProfitPrev'),
-          }
-        };
-      }
-
-      const update=patch=>{ if(!v) return; setVehicles(prev=>prev.map(it=>it.id===v.id?({...it,...patch}):it)); };
-      const toggleActive=id=>setVehicles(prev=>prev.map(it=>it.id===id?({...it,active:!it.active}):it));
-
-      const [tab,setTab]=useState('dashboard');
-
-      // Formulaire simplifié
-      const [form,setForm]=useState({
-        vehicleId:vehicles[0]?.id||'', start:'', end:'',
-        totalAmount:'', pricePerDay:'',
-        platform:'getaround',
-        extraFees:'', fuelMode:'aucun', fuelAmount:'', notes:''
-      });
-      useEffect(()=>{ if(!form.vehicleId && vehicles.length){ setForm(f=>({...f,vehicleId:vehicles[0].id})); } },[vehicles]);
-
-      function addBooking(){
-        if(!form.vehicleId || !form.start || !form.end){ alert('Renseigne véhicule + dates'); return; }
-        const id=(crypto?.randomUUID?crypto.randomUUID():'bk-'+Math.random().toString(36).slice(2));
-        const booking={
-          id, vehicleId:form.vehicleId, start:form.start, end:form.end,
-          totalAmount: form.totalAmount!==''?Number(form.totalAmount):null,
-          pricePerDay: form.pricePerDay!==''?Number(form.pricePerDay):null,
-          platform: form.platform||'getaround',
-          extraFees: form.extraFees!==''?Number(form.extraFees):0,
-          fuelMode: form.fuelMode||'aucun',
-          fuelAmount: form.fuelAmount!==''?Number(form.fuelAmount):0,
-          notes: form.notes||''
-        };
-        const nb=normalizeBooking(booking);
-        if(!nb){ alert('Indique au moins Montant total ou Prix/jour + dates.'); return; }
-        setBookings(prev=>[nb,...prev]);
-        setForm(f=>({...f,start:'',end:'',totalAmount:'',pricePerDay:'',extraFees:'',fuelAmount:'',notes:''}));
-      }
-      function removeBooking(id){ setBookings(prev=>prev.filter(b=>b.id!==id)); }
-
-      // Fleet (prévu vs réel) sur la période fixe
-      const fleet=useMemo(()=>{
-        const actives=vehicles.filter(v=>v.active);
-        const plans=actives.map(calcPlan);
-        const revPlan=plans.reduce((s,r)=>s+r.periodRevenue,0);
-        const costPlan=plans.reduce((s,r)=>s+r.periodCosts,0);
-        const profitPlan=revPlan-costPlan;
-
-        let revActual=0;
-        actives.forEach(veh=>{
-          const map=aggregateActualInPeriod(veh.id);
-          // somme sur tous les mois présents dans la période
-          periodSegments.forEach(seg=>{ revActual += (map.get(seg.month)||0); });
-        });
-        const costActual=costPlan; // coûts prévus ~ coûts réels (hors suivi fin)
-        const profitActual=revActual-costActual;
-
-        const invested=actives.reduce((s,v)=>s+v.purchasePrice,0);
-        const roiPlan=invested?(profitPlan/invested):0;
-        const roiActual=invested?(profitActual/invested):0;
-
-        return {revPlan,costPlan,profitPlan,revActual,costActual,profitActual,roiPlan,roiActual,activeCount:actives.length,totalCount:vehicles.length};
-      },[vehicles,bookings]);
-
-      function doExport(){ 
-        download('roi-data.json', JSON.stringify({
-          exportedAt:new Date().toISOString(),
-          periodStart: PERIOD_START.toISOString(),
-          periodEnd:   PERIOD_END.toISOString(),
-          vehicles, bookings
-        },null,2));
-      }
-      function doImport(file){
-        const r=new FileReader();
-        r.onload=e=>{
-          try{
-            const data=JSON.parse(e.target.result);
-            if(Array.isArray(data.vehicles)&&Array.isArray(data.bookings)){
-              setVehicles(data.vehicles); setBookings(data.bookings);
-              alert('Import réussi ✅');
-            }else alert('Fichier invalide.');
-          }catch{ alert('Impossible de lire ce JSON.'); }
-        };
-        r.readAsText(file);
-      }
-
-      const periodLabel = (()=> {
-        const d1 = PERIOD_START.toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
-        const d2 = new Date(PERIOD_END.getTime()-1).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
-        return `${d1} → ${d2} (12 mois)`;
-      })();
-
-      return React.createElement('div',{className:'min-h-screen w-full'},
-        React.createElement('header',{className:'sticky top-0 z-10 bg-white/80 backdrop-blur border-b'},
-          React.createElement('div',{className:'max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap'},
-            React.createElement('div', null,
-              React.createElement('h1',{className:'text-xl sm:text-2xl font-bold'},'Tableau de bord rentabilite — Flotte'),
-              React.createElement('div',{className:'text-sm text-neutral-600'}, periodLabel)
-            ),
-            React.createElement('div',{className:'flex items-center gap-2 text-sm'},
-              React.createElement('button',{className:'ml-3 px-3 py-1.5 rounded-xl bg-neutral-900 text-white',onClick:doExport},'Exporter JSON'),
-              React.createElement('label',{className:'px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 cursor-pointer'},'Importer JSON',
-                React.createElement('input',{type:'file',accept:'application/json',className:'hidden',onChange:e=>e.target.files[0]&&doImport(e.target.files[0])})
-              )
-            )
-          )
-        ),
-
-        React.createElement('main',{className:'max-w-6xl mx-auto px-4 pb-24 pt-6 grid gap-6'},
-          React.createElement('div',{className:'flex gap-2'},
-            React.createElement('button',{onClick:()=>setTab('dashboard'),className:'tab-btn '+(tab==='dashboard'?'tab-active':'tab-inactive')},'Tableau'),
-            React.createElement('button',{onClick:()=>setTab('actuals'),className:'tab-btn '+(tab==='actuals'?'tab-active':'tab-inactive')},'Réel vs Prévu')
-          ),
-
-          // DASHBOARD
-          tab==='dashboard' && React.createElement(React.Fragment,null,
-            React.createElement('section',{className:'grid sm:grid-cols-5 gap-3 items-stretch'},
-              React.createElement(Card,{title:'Revenu période (flotte - prévu)'},fmtEUR(fleet.revPlan)),
-              React.createElement(Card,{title:'Coûts période (flotte - prévu)'},fmtEUR(fleet.costPlan)),
-              React.createElement(Card,{title:'Profit période (flotte - prévu)'},React.createElement('span',{className:(fleet.profitPlan)>=0?'text-emerald-600':'text-rose-600'},fmtEUR(fleet.profitPlan))),
-              React.createElement(Card,{title:'ROI période (prévu)'},(fleet.roiPlan*100).toFixed(1)+'%'),
-              React.createElement(Card,{title:'Actifs'},fleet.activeCount+' / '+fleet.totalCount)
-            ),
-            v && (function(){ const c=calcPlan(v); return React.createElement('section',{className:'bg-white rounded-2xl shadow p-4'},
-              React.createElement('div',{className:'flex flex-wrap items-center gap-2 mb-3'},
-                React.createElement('label',{className:'text-sm font-medium'},'Vehicule :'),
-                React.createElement('select',{className:'border rounded-xl px-3 py-2',value:selected,onChange:e=>setSelected(e.target.value)},vehicles.map(vv=>React.createElement('option',{key:vv.id,value:vv.id},vv.name))),
-                React.createElement('button',{className:'ml-auto px-3 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200',onClick:()=>toggleActive(v.id)},v.active?'Suspendre':'Reprendre')
-              ),
-              React.createElement('div',{className:'grid lg:grid-cols-3 gap-6'},
-                // Panneau édition
-                React.createElement('div',{className:'lg:col-span-1 grid gap-4'},
-                  React.createElement(Field,{label:'Nom du vehicule'},React.createElement('input',{className:'w-full border rounded-xl px-3 py-2',value:v.name,onChange:e=>update({name:e.target.value})})),
-                  React.createElement('div',{className:'grid grid-cols-2 gap-4'},
-                    React.createElement(Field,{label:"Prix d'achat"},React.createElement(InputNumber,{value:v.purchasePrice,onChange:val=>update({purchasePrice:val}),suffix:'€'})),
-                    React.createElement(Field,{label:'Tarif locataire / jour'},React.createElement(InputNumber,{value:v.dailyPrice,onChange:val=>update({dailyPrice:val}),suffix:'€'}))
-                  ),
-                  React.createElement('div',{className:'grid grid-cols-2 gap-4'},
-                    React.createElement(Field,{label:'Commission plateforme (Getaround)'},React.createElement('input',{className:'w-full border rounded-xl px-3 py-2 bg-neutral-50',value:'10 %',disabled:true})),
-                    React.createElement(Field,{label:'Jours loues / mois'},React.createElement(InputNumber,{value:v.daysPerMonth,onChange:val=>update({daysPerMonth:clamp(val,0,31)}),suffix:'j'}))
-                  ),
-                  React.createElement('div',{className:'grid gap-2 border rounded-xl p-3'},
-                    React.createElement('label',{className:'text-sm font-medium flex items-center gap-2'},
-                      React.createElement('input',{type:'checkbox',checked:!!v.useSeasonality,onChange:e=>update({useSeasonality:e.target.checked})}),
-                      'Activer la saisonnalite (definir des jours loues par mois)'
-                    ),
-                    v.useSeasonality && React.createElement('div',{className:'grid grid-cols-3 sm:grid-cols-6 gap-2'},
-                      MONTHS.map((m,i)=>
-                        React.createElement('div',{key:m,className:'grid text-xs'},
-                          React.createElement('span',{className:'text-neutral-600 mb-1'},m),
-                          React.createElement('input',{type:'number',className:'border rounded-lg px-2 py-1',min:0,max:31,
-                            value:(v.seasonality && v.seasonality[i]!==undefined)?v.seasonality[i]:v.daysPerMonth,
-                            onChange:e=>{ const arr=(v.seasonality && v.seasonality.length===12)?v.seasonality.slice():new Array(12).fill(v.daysPerMonth); arr[i]=Number(e.target.value); update({seasonality:arr}); }
-                          })
-                        )
-                      )
-                    )
-                  ),
-                  React.createElement('div',{className:'grid grid-cols-2 gap-4'},
-                    React.createElement(Field,{label:'Assurance / mois'},React.createElement(InputNumber,{value:v.insuranceMonthly,onChange:val=>update({insuranceMonthly:val}),suffix:'€'})),
-                    React.createElement(Field,{label:'Connect / mois'},React.createElement(InputNumber,{value:v.connectMonthly,onChange:val=>update({connectMonthly:val}),suffix:'€'})),
-                    React.createElement(Field,{label:'Stationnement / mois'},React.createElement(InputNumber,{value:v.parkingMonthly,onChange:val=>update({parkingMonthly:val}),suffix:'€'})),
-                    React.createElement(Field,{label:'Autres frais / mois'},React.createElement(InputNumber,{value:v.otherMonthly,onChange:val=>update({otherMonthly:val}),suffix:'€'}))
-                  ),
-                  React.createElement(Field,{label:'Entretien annuel (prevision)'},React.createElement(InputNumber,{value:v.maintenanceAnnual,onChange:val=>update({maintenanceAnnual:val}),suffix:'€'})),
-                  React.createElement('p',{className:'hint'},'Période fixe : 14 août 2025 → 14 août 2026. Les mois partiels sont proratisés.')
-                ),
-                // KPI
-                React.createElement('div',{className:'lg:col-span-2 grid sm:grid-cols-2 gap-4'},
-                  React.createElement(Card,{title:'Revenu période (prévu)'},fmtEUR(c.periodRevenue)),
-                  React.createElement(Card,{title:'Coûts période (prévu)'},fmtEUR(c.periodCosts)),
-                  React.createElement(Card,{title:'Profit période (prévu)'},React.createElement('span',{className:c.periodProfit>=0?'text-emerald-600':'text-rose-600'},fmtEUR(c.periodProfit))),
-                  React.createElement(Card,{title:'Seuil rentabilité (j/mois plein)'},c.breakevenDays.toFixed(1))
-                ),
-                React.createElement('div',{className:'lg:col-span-3 grid lg:grid-cols-2 gap-6'},
-                  React.createElement('div',{className:'bg-white rounded-2xl shadow p-4'},
-                    React.createElement('h3',{className:'font-semibold mb-2'},'Revenu / Couts / Profit (prévu - période)'),
-                    React.createElement('div',{className:'h-64'},
-                      React.createElement(ResponsiveContainer,{width:'100%',height:'100%'},
-                        React.createElement(BarChart,{data:c.chart},
-                          React.createElement(CartesianGrid,{strokeDasharray:'3 3'}),
-                          React.createElement(XAxis,{dataKey:'mois'}),
-                          React.createElement(YAxis,null),
-                          React.createElement(Tooltip,{formatter:v=>fmtEUR(Number(v))}),
-                          React.createElement(Legend,null),
-                          React.createElement(Bar,{dataKey:'Revenu'}),
-                          React.createElement(Bar,{dataKey:'Couts'}),
-                          React.createElement(Bar,{dataKey:'Profit'})
-                        )
-                      )
-                    )
-                  ),
-                  React.createElement('div',{className:'bg-white rounded-2xl shadow p-4'},
-                    React.createElement('h3',{className:'font-semibold mb-2'},'Profit cumule (prévu - période)'),
-                    React.createElement('div',{className:'h-64'},
-                      React.createElement(ResponsiveContainer,{width:'100%',height:'100%'},
-                        React.createElement(LineChart,{data:c.chart},
-                          React.createElement(CartesianGrid,{strokeDasharray:'3 3'}),
-                          React.createElement(XAxis,{dataKey:'mois'}),
-                          React.createElement(YAxis,null),
-                          React.createElement(Tooltip,{formatter:v=>fmtEUR(Number(v))}),
-                          React.createElement(Legend,null),
-                          React.createElement(Line,{type:'monotone',dataKey:'Cumul',dot:false})
-                        )
-                      )
-                    )
-                  )
-                )
-              )
-            )})()
-          ),
-
-          // ACTUALS
-          tab==='actuals' && React.createElement(React.Fragment,null,
-            React.createElement('section',{className:'grid sm:grid-cols-5 gap-3 items-stretch'},
-              React.createElement(Card,{title:'Revenu période (flotte - RÉEL)'},fmtEUR(fleet.revActual)),
-              React.createElement(Card,{title:'Coûts période (flotte - RÉEL)'},fmtEUR(fleet.costActual)),
-              React.createElement(Card,{title:'Profit période (flotte - RÉEL)'},React.createElement('span',{className:fleet.profitActual>=0?'text-emerald-600':'text-rose-600'},fmtEUR(fleet.profitActual))),
-              React.createElement(Card,{title:'ROI période (RÉEL)'},(fleet.roiActual*100).toFixed(1)+'%'),
-              React.createElement(Card,{title:'Actifs'},fleet.activeCount+' / '+fleet.totalCount)
-            ),
-            React.createElement('section',{className:'bg-white rounded-2xl shadow p-4 grid gap-4'},
-              React.createElement('h3',{className:'font-semibold'},'Ajouter une location (réel)'),
-              React.createElement('div',{className:'grid md:grid-cols-3 gap-4'},
-                React.createElement(Field,{label:'Véhicule'},
-                  React.createElement('select',{className:'border rounded-xl px-3 py-2',value:form.vehicleId,onChange:e=>setForm({...form,vehicleId:e.target.value})},vehicles.map(vv=>React.createElement('option',{key:vv.id,value:vv.id},vv.name)))
-                ),
-                React.createElement(Field,{label:'Début'},React.createElement('input',{type:'date',className:'border rounded-xl px-3 py-2',value:form.start,onChange:e=>setForm({...form,start:e.target.value})})),
-                React.createElement(Field,{label:'Fin'},React.createElement('input',{type:'date',className:'border rounded-xl px-3 py-2',value:form.end,onChange:e=>setForm({...form,end:e.target.value})}))
-              ),
-              React.createElement('div',{className:'grid md:grid-cols-5 gap-4'},
-                React.createElement(Field,{label:'Montant total (€) — si vide, calcule Prix/jour × nb jours'},React.createElement('input',{type:'number',className:'border rounded-xl px-3 py-2',value:form.totalAmount,onChange:e=>setForm({...form,totalAmount:e.target.value})})),
-                React.createElement(Field,{label:'Prix/jour (€) (optionnel)'},React.createElement('input',{type:'number',className:'border rounded-xl px-3 py-2',value:form.pricePerDay,onChange:e=>setForm({...form,pricePerDay:e.target.value})})),
-                React.createElement(Field,{label:'Plateforme'},
-                  React.createElement('select',{className:'border rounded-xl px-3 py-2 w-full md:w-auto',value:form.platform,onChange:e=>setForm({...form,platform:e.target.value})},
-                    ['getaround','turo','direct','autre'].map(p=>React.createElement('option',{key:p,value:p},p))
-                  ),
-                  React.createElement('span',{className:'hint'},'Commission auto : Getaround 10 % • Turo 25 % • Direct 0 %')
-                ),
-                React.createElement(Field,{label:'Frais/Extras (€)'},React.createElement('input',{type:'number',className:'border rounded-xl px-3 py-2',value:form.extraFees,onChange:e=>setForm({...form,extraFees:e.target.value})})),
-                React.createElement('div',null)
-              ),
-              React.createElement('div',{className:'grid md:grid-cols-3 gap-4'},
-                React.createElement(Field,{label:'Carburant — mode'},
-                  React.createElement('select',{className:'border rounded-xl px-3 py-2',value:form.fuelMode,onChange:e=>setForm({...form,fuelMode:e.target.value})},
-                    [{v:'aucun',t:'Aucun ajustement'},{v:'facture',t:'Facturé au client (+€)'},{v:'rembourse',t:'Remboursé au client (-€)'}].map(o=>React.createElement('option',{key:o.v,value:o.v},o.t))
-                  )
-                ),
-                React.createElement(Field,{label:'Carburant — montant (€)'},
-                  React.createElement('input',{type:'number',className:'border rounded-xl px-3 py-2',value:form.fuelAmount,onChange:e=>setForm({...form,fuelAmount:e.target.value})}),
-                  React.createElement('span',{className:'hint'},'Le signe est géré automatiquement selon le mode.')
-                ),
-                React.createElement(Field,{label:'Notes'},React.createElement('input',{type:'text',className:'border rounded-xl px-3 py-2',value:form.notes,onChange:e=>setForm({...form,notes:e.target.value})}))
-              ),
-              React.createElement('div',null,
-                React.createElement('button',{className:'px-4 py-2 rounded-xl bg-neutral-900 text-white',onClick:addBooking},'+ Ajouter')
-              )
-            ),
-            React.createElement('section',{className:'bg-white rounded-2xl shadow p-4'},
-              React.createElement('div',{className:'mb-3 flex items-center justify-between'},
-                React.createElement('h3',{className:'font-semibold'},'Locations réelles'),
-                React.createElement('div',{className:'text-sm text-neutral-600'},bookings.length,' enregistrements')
-              ),
-              React.createElement('div',{className:'overflow-x-auto'},
-                React.createElement('table',{className:'w-full text-sm'},
-                  React.createElement('thead',null,
-                    React.createElement('tr',{className:'text-left text-neutral-600'},
-                      ['Véhicule','Début','Fin','Total','Commission','Frais','Carburant','Net (estimé)','Notes',''].map(h=>React.createElement('th',{key:h,className:'py-2 pr-2'},h))
-                    )
-                  ),
-                  React.createElement('tbody',null,
-                    bookings.map(b=>{
-                      const veh=vehicles.find(vv=>vv.id===b.vehicleId); const name=veh?veh.name:b.vehicleId;
-                      const nb=normalizeBooking(b);
-                      return React.createElement('tr',{key:b.id,className:'border-t align-top'},
-                        React.createElement('td',{className:'py-2 pr-2'},name),
-                        React.createElement('td',{className:'py-2 pr-2'},b.start),
-                        React.createElement('td',{className:'py-2 pr-2'},b.end),
-                        React.createElement('td',{className:'py-2 pr-2'},fmtEUR(nb.total)),
-                        React.createElement('td',{className:'py-2 pr-2'},Math.round(nb.commission*100)+'%'),
-                        React.createElement('td',{className:'py-2 pr-2'},fmtEUR(nb.extra)),
-                        React.createElement('td',{className:'py-2 pr-2'},fmtEUR(nb.fuel)),
-                        React.createElement('td',{className:'py-2 pr-2'},fmtEUR(nb.net)),
-                        React.createElement('td',{className:'py-2 pr-2 max-w-[240px] truncate',title:b.notes||''},b.notes||''),
-                        React.createElement('td',{className:'py-2 pr-2 text-right'},React.createElement('button',{className:'px-2 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700',onClick:()=>removeBooking(b.id)},'Supprimer'))
-                      );
-                    })
-                  )
-                )
-              )
-            ),
-            v && (function(){ const comp=compareVehicle(v); return React.createElement('section',{className:'bg-white rounded-2xl shadow p-4 grid gap-4'},
-              React.createElement('div',{className:'flex items-center gap-2'},React.createElement('h3',{className:'font-semibold'},'Comparatif (',v.name,') — Prévu vs Réel')),
-              React.createElement('div',{className:'grid sm:grid-cols-3 gap-3'},
-                React.createElement(Card,{title:'Revenu (prévu → réel)'},fmtEUR(comp.kpis.prevRev)+' → '+fmtEUR(comp.kpis.actRev)),
-                React.createElement(Card,{title:'Profit (prévu → réel)'},React.createElement('span',{className:(comp.kpis.actProfit-comp.kpis.prevProfit)>=0?'text-emerald-600':'text-rose-600'},fmtEUR(comp.kpis.prevProfit)+' → '+fmtEUR(comp.kpis.actProfit))),
-                React.createElement(Card,{title:'Écart profit (réel - prévu)'},React.createElement('span',{className:(comp.kpis.diffProfit)>=0?'text-emerald-600':'text-rose-600'},fmtEUR(comp.kpis.diffProfit)))
-              ),
-              React.createElement('div',{className:'h-64'},
-                React.createElement(ResponsiveContainer,{width:'100%',height:'100%'},
-                  React.createElement(BarChart,{data:comp.rows},
-                    React.createElement(CartesianGrid,{strokeDasharray:'3 3'}),
-                    React.createElement(XAxis,{dataKey:'mois'}),
-                    React.createElement(YAxis,null),
-                    React.createElement(Tooltip,{formatter:v=>fmtEUR(Number(v))}),
-                    React.createElement(Legend,null),
-                    React.createElement(Bar,{dataKey:'Prev',name:'Prévu'}),
-                    React.createElement(Bar,{dataKey:'Reel',name:'Réel'})
-                  )
-                )
-              )
-            )})()
-          )
-        )
-      );
-    }
-
-    function Card({title,children}){
-      return React.createElement('div',{className:'rounded-2xl border bg-white shadow p-4'},
-        React.createElement('div',{className:'text-xs uppercase tracking-wide text-neutral-500 mb-1'},title),
-        React.createElement('div',{className:'text-lg font-semibold mono'},children)
-      );
-    }
-    function Field({label,children}){
-      return React.createElement('label',{className:'grid gap-1'},
-        React.createElement('span',{className:'text-sm font-medium text-neutral-700'},label),
-        children
-      );
-    }
-    function InputNumber({value,onChange,suffix}){
-      return React.createElement('div',{className:'flex items-center border rounded-xl overflow-hidden'},
-        React.createElement('input',{className:'w-full px-3 py-2 outline-none',type:'number',value:Number.isFinite(value)?value:0,step:'0.01',onChange:e=>onChange(Number(e.target.value))}),
-        suffix?React.createElement('div',{className:'px-3 py-2 bg-neutral-50 border-l text-neutral-600'},suffix):null
-      );
-    }
-
-    const root=ReactDOM.createRoot(document.getElementById('root'));
-    root.render(React.createElement(App));
-  }
-  startApp();
-  </script>
+document.getElementById('exportBtn').addEventListener('click',()=>{const data={settings, rentals};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`roi-data-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0)});
+document.getElementById('importInput').addEventListener('change',e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(d.settings){settings=Object.assign({},settings,d.settings);saveJSON(KEY_SETTINGS,settings);applySettings()}if(Array.isArray(d.rentals)){rentals=d.rentals;saveJSON(KEY_RENTALS,rentals)}renderAll();alert('Import réussi ✅')}catch(err){alert('Fichier invalide ❌')}};r.readAsText(f)});
+</script>
 </body>
 </html>
