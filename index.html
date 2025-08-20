@@ -1,173 +1,158 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Mon Dashboard ROI – Simple & Clair</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mon Dashboard ROI</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    :root {
-      --c-primary: #4f46e5;
-      --c-secondary: #10b981;
-      --c-accent: #f59e0b;
-      --c-danger: #ef4444;
-      --bg-soft: #f8fafc;
-    }
-    body { background: var(--bg-soft); }
-    .card { background:#fff; border-radius:1rem; box-shadow:0 8px 24px rgba(2,6,23,.06); padding:1rem; }
-    .btn { padding:.5rem .75rem; border-radius:.75rem; font-weight:600; }
-    .btn-primary { color:#fff; background:var(--c-primary); }
-    .btn-secondary { color:#fff; background:var(--c-secondary); }
-    .btn-ghost { background:#eef2f7; color:#0f172a; }
-    .input { width:100%; border:1px solid #cbd5e1; border-radius:.75rem; padding:.5rem .75rem; background:#fff; }
-    .grid-cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap:1rem; }
-    .pill { font-size:.75rem; font-weight:700; padding:.25rem .5rem; border-radius:999px; }
-  </style>
 </head>
-<body class="min-h-screen">
-  <header class="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-slate-200">
-    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-      <div class="flex items-center gap-3">
-        <div class="h-8 w-8 rounded-xl flex items-center justify-center text-white" style="background:var(--c-primary)">🚗</div>
-        <h1 class="text-lg font-bold">Dashboard ROI – Clio 5</h1>
-      </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <button id="exportBtn" class="btn btn-ghost">Exporter JSON</button>
-        <label class="btn btn-ghost cursor-pointer">
-          Importer JSON
-          <input id="importInput" type="file" accept="application/json" class="hidden"/>
-        </label>
-      </div>
+<body class="bg-gray-100 text-gray-800">
+  <div class="max-w-6xl mx-auto p-6">
+    <h1 class="text-3xl font-bold text-center mb-6">📊 Dashboard Rentabilité</h1>
+
+    <!-- Onglets -->
+    <div class="flex space-x-4 mb-6">
+      <button onclick="showTab('locations')" class="tab-btn bg-blue-500 text-white px-4 py-2 rounded">🚗 Locations</button>
+      <button onclick="showTab('parametres')" class="tab-btn bg-gray-300 px-4 py-2 rounded">⚙️ Paramètres</button>
+      <button onclick="showTab('previsions')" class="tab-btn bg-gray-300 px-4 py-2 rounded">📈 Prévisions</button>
+      <button onclick="showTab('suivi')" class="tab-btn bg-gray-300 px-4 py-2 rounded">📅 Suivi Mensuel</button>
     </div>
-  </header>
 
-  <main class="max-w-6xl mx-auto px-4 py-6 space-y-6">
-    <section class="card">
-      <h2 class="text-xl font-semibold mb-4">Paramètres généraux</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div><label class="text-sm text-slate-600">Commission plateforme (%)</label><input id="commission" type="number" class="input" min="0" max="50" step="0.1" value="10"/></div>
-        <div><label class="text-sm text-slate-600">Assurance mensuelle (€)</label><input id="fix_assurance" type="number" class="input" min="0" step="1" value="54"/></div>
-        <div><label class="text-sm text-slate-600">Connect mensuel (€)</label><input id="fix_connect" type="number" class="input" min="0" step="1" value="25"/></div>
-        <div><label class="text-sm text-slate-600">Entretien provision (€)</label><input id="fix_entretien" type="number" class="input" min="0" step="1" value="45"/></div>
-        <div><label class="text-sm text-slate-600">Usure €/km</label><input id="wear_per_km" type="number" class="input" min="0" step="0.01" value="0.12"/></div>
-        <div><label class="text-sm text-slate-600">Km inclus / jour</label><input id="km_inclus" type="number" class="input" min="0" step="1" value="100"/></div>
-      </div>
-      <div class="mt-3"><button id="saveSettings" class="btn btn-primary">Enregistrer paramètres</button> <span id="settingsSaved" class="text-sm text-slate-500 hidden">✔️ Sauvegardé</span></div>
-    </section>
-
-    <section class="card">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-xl font-semibold">Locations (ajout & édition)</h2>
-        <div class="flex gap-2">
-          <input id="filterMonth" type="month" class="input !w-auto"/>
-          <button id="clearFilter" class="btn btn-ghost">Effacer filtre</button>
-        </div>
-      </div>
-
-      <form id="rentalForm" class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
-        <div class="md:col-span-2"><label class="text-sm text-slate-600">Début</label><input id="startDate" type="date" class="input"/></div>
-        <div><label class="text-sm text-slate-600">Jours</label><input id="days" type="number" class="input" min="1" value="1"/></div>
-        <div><label class="text-sm text-slate-600">Prix proprio €/jour</label><input id="pricePerDay" type="number" class="input" min="0" step="0.1" value="30"/></div>
-        <div><label class="text-sm text-slate-600">Km totaux (optionnel)</label><input id="kms" type="number" class="input" min="0" step="1" placeholder="ex. 250"/></div>
-        <div class="md:col-span-2"><label class="text-sm text-slate-600">Frais carburant & divers (€) (optionnel)</label><input id="extraCosts" type="number" class="input" min="0" step="0.1" value="0"/></div>
-        <div class="md:col-span-4"><label class="text-sm text-slate-600">Notes</label><input id="notes" type="text" class="input" placeholder="Ex. week-end, locataire pro, etc."/></div>
-        <div class="md:col-span-2"><button class="btn btn-secondary w-full" type="submit">Ajouter la location</button></div>
+    <!-- Onglet Locations -->
+    <div id="locations" class="tab">
+      <h2 class="text-xl font-semibold mb-4">Ajouter une location réelle</h2>
+      <form id="locationForm" class="space-y-4 mb-6">
+        <input type="date" id="date" class="border p-2 rounded w-full" required />
+        <input type="number" id="revenu" placeholder="Revenu brut (€)" class="border p-2 rounded w-full" required />
+        <input type="number" id="commission" placeholder="Commission (€)" class="border p-2 rounded w-full" required />
+        <input type="number" id="carburant" placeholder="Frais carburant (€)" class="border p-2 rounded w-full" />
+        <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded">Ajouter</button>
       </form>
 
-      <div class="mt-6 overflow-x-auto">
-        <table class="min-w-full text-sm">
-          <thead><tr class="text-left text-slate-600"><th class="py-2">Début</th><th>Jours</th><th>€/jour</th><th>Km</th><th>Extras €</th><th>Net location €</th><th>Notes</th><th></th></tr></thead>
-          <tbody id="rentalTable" class="align-top"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="grid-cards">
-      <div class="card">
-        <h2 class="text-xl font-semibold mb-3">Résumé mois sélectionné</h2>
-        <div id="monthSummary" class="space-y-2"></div>
-      </div>
-      <div class="card">
-        <h2 class="text-xl font-semibold mb-3">Résultat par mois (net après frais fixes)</h2>
-        <canvas id="barMonthly" height="140"></canvas>
-      </div>
-      <div class="card">
-        <h2 class="text-xl font-semibold mb-3">Cumul annuel (net après frais fixes)</h2>
-        <canvas id="lineCumul" height="140"></canvas>
-      </div>
-    </section>
-  </main>
-
-  <footer class="max-w-6xl mx-auto px-4 py-8 text-center text-xs text-slate-500">
-    Fait pour César – Données stockées localement · Pense à Exporter JSON avant de changer d'appareil
-  </footer>
-
-<script>
-const KEY_SETTINGS='roi_settings_v2'; const KEY_RENTALS='roi_rentals_v2';
-function loadJSON(k,f){try{const v=localStorage.getItem(k);return v?JSON.parse(v):f}catch(e){return f}}
-function saveJSON(k,d){localStorage.setItem(k,JSON.stringify(d))}
-
-let settings=loadJSON(KEY_SETTINGS,{commission:10,fix_assurance:54,fix_connect:25,fix_entretien:45,wear_per_km:0.12,km_inclus:100});
-let rentals=loadJSON(KEY_RENTALS,[]);
-
-const q=id=>document.getElementById(id);
-function applySettings(){q('commission').value=settings.commission;q('fix_assurance').value=settings.fix_assurance;q('fix_connect').value=settings.fix_connect;q('fix_entretien').value=settings.fix_entretien;q('wear_per_km').value=settings.wear_per_km;q('km_inclus').value=settings.km_inclus;}
-applySettings();
-
-q('saveSettings').addEventListener('click',()=>{settings.commission=Number(q('commission').value||0);settings.fix_assurance=Number(q('fix_assurance').value||0);settings.fix_connect=Number(q('fix_connect').value||0);settings.fix_entretien=Number(q('fix_entretien').value||0);settings.wear_per_km=Number(q('wear_per_km').value||0);settings.km_inclus=Number(q('km_inclus').value||0);saveJSON(KEY_SETTINGS,settings);q('settingsSaved').classList.remove('hidden');setTimeout(()=>q('settingsSaved').classList.add('hidden'),1500);renderAll();});
-
-const form=q('rentalForm'); let editId=null;
-form.addEventListener('submit',e=>{e.preventDefault();const start=q('startDate').value;if(!start){alert('Choisis une date de début');return}const r={id:editId??crypto.randomUUID(),start,days:Number(q('days').value||1),pricePerDay:Number(q('pricePerDay').value||0),kms:q('kms').value?Number(q('kms').value):null,extraCosts:Number(q('extraCosts').value||0),notes:q('notes').value||''};if(editId){rentals=rentals.map(x=>x.id===editId?r:x);editId=null}else{rentals.push(r)}saveJSON(KEY_RENTALS,rentals);form.reset();renderAll();});
-
-q('clearFilter').addEventListener('click',()=>{q('filterMonth').value='';renderAll();});
-
-const tableBody=q('rentalTable');
-function monthStr(d){const dt=new Date(d);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');}
-function netForRental(r){const commissionRate=(settings.commission||0)/100;const gross=r.pricePerDay*r.days;const after=gross*(1-commissionRate);const wear=r.kms?r.kms*(settings.wear_per_km||0):0;return after-(r.extraCosts||0)-wear;}
-
-function renderTable(){tableBody.innerHTML='';const filter=q('filterMonth').value;const arr=rentals.slice().sort((a,b)=>new Date(b.start)-new Date(a.start)).filter(r=>!filter||monthStr(r.start)===filter);for(const r of arr){const tr=document.createElement('tr');tr.className='border-t border-slate-200';const net=netForRental(r);tr.innerHTML=`
-<td class="py-2">${r.start}</td>
-<td>${r.days}</td>
-<td>${r.pricePerDay.toFixed(2)}</td>
-<td>${r.kms??'-'}</td>
-<td>${(r.extraCosts||0).toFixed(2)}</td>
-<td><span class="pill ${net>=0?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-700'}">${net.toFixed(2)} €</span></td>
-<td class="max-w-[240px] truncate" title="${r.notes??''}">${r.notes??''}</td>
-<td class="text-right">
-  <button class="btn btn-ghost" data-edit="${r.id}">Éditer</button>
-  <button class="btn btn-ghost" data-del="${r.id}">Supprimer</button>
-</td>`;tableBody.appendChild(tr);}tableBody.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>{const id=b.getAttribute('data-edit');const r=rentals.find(x=>x.id===id);if(!r)return;editId=id;q('startDate').value=r.start;q('days').value=r.days;q('pricePerDay').value=r.pricePerDay;q('kms').value=r.kms??'';q('extraCosts').value=r.extraCosts??0;q('notes').value=r.notes??'';window.scrollTo({top:form.getBoundingClientRect().top+window.scrollY-100,behavior:'smooth'});}));tableBody.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{const id=b.getAttribute('data-del');if(confirm('Supprimer cette location ?')){rentals=rentals.filter(x=>x.id!==id);saveJSON(KEY_RENTALS,rentals);renderAll();}}));}
-
-const monthSummary=q('monthSummary'); let barChart,lineChart;
-function groupByMonth(arr){const m={};for(const r of arr){const k=monthStr(r.start);(m[k]=m[k]||[]).push(r);}return m;}
-function renderSummaryAndCharts(){const byM=groupByMonth(rentals);const months=Object.keys(byM).sort();const monthlyBefore=months.map(m=>byM[m].reduce((s,r)=>s+netForRental(r),0));const fix=months.map(_=>(settings.fix_assurance||0)+(settings.fix_connect||0)+(settings.fix_entretien||0));const monthlyAfter=monthlyBefore.map((v,i)=>v-fix[i]);const fm=q('filterMonth').value||(months[months.length-1]??null);if(fm){const arr=byM[fm]||[];const before=arr.reduce((s,r)=>s+netForRental(r),0);const f=(settings.fix_assurance||0)+(settings.fix_connect||0)+(settings.fix_entretien||0);const after=before-f;const ok=after>=0;monthSummary.innerHTML=`
-  <div class="grid grid-cols-2 gap-3">
-    <div class="p-3 rounded-xl bg-indigo-50">
-      <div class="text-xs text-slate-500">Revenus nets (avant frais fixes)</div>
-      <div class="text-2xl font-semibold">${before.toFixed(2)} €</div>
+      <table class="w-full border-collapse bg-white shadow rounded">
+        <thead class="bg-blue-100">
+          <tr>
+            <th class="p-2 border">Date</th>
+            <th class="p-2 border">Revenu (€)</th>
+            <th class="p-2 border">Commission (€)</th>
+            <th class="p-2 border">Carburant (€)</th>
+            <th class="p-2 border">Net (€)</th>
+            <th class="p-2 border">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="locationTable"></tbody>
+      </table>
     </div>
-    <div class="p-3 rounded-xl bg-amber-50">
-      <div class="text-xs text-slate-500">Frais fixes du mois</div>
-      <div class="text-2xl font-semibold">-${f.toFixed(2)} €</div>
-    </div>
-    <div class="p-3 rounded-xl ${ok?'bg-emerald-100 text-emerald-800':'bg-red-100 text-red-800'} col-span-2">
-      <div class="text-xs">Résultat net du mois</div>
-      <div class="text-2xl font-bold">${after.toFixed(2)} €</div>
-    </div>
-  </div>`;q('filterMonth').value=fm;}else{monthSummary.innerHTML='<div class="text-slate-500 text-sm">Aucune donnée pour le moment. Ajoute une location.</div>';}
-  if(barChart){barChart.destroy()} if(lineChart){lineChart.destroy()}
-  const ctxB=document.getElementById('barMonthly').getContext('2d');barChart=new Chart(ctxB,{type:'bar',data:{labels:months,datasets:[{label:'Net après frais fixes (€)',data:monthlyAfter,backgroundColor:monthlyAfter.map(v=>v>=0?'rgba(16,185,129,.8)':'rgba(239,68,68,.8)')}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(2)} €`}}},scales:{y:{beginAtZero:true}}}});
-  const cum=[];let acc=0;for(const v of monthlyAfter){acc+=v;cum.push(acc)} const ctxL=document.getElementById('lineCumul').getContext('2d');lineChart=new Chart(ctxL,{type:'line',data:{labels:months,datasets:[{label:'Cumul annuel (€)',data:cum,fill:false,borderColor:'rgba(79,70,229,.9)',tension:.3,pointRadius:3}]},options:{plugins:{legend:{display:false}}}});
-}
-q('filterMonth').addEventListener('change',renderAll);
 
-function renderAll(){renderTable();renderSummaryAndCharts()}
-renderAll();
+    <!-- Onglet Paramètres -->
+    <div id="parametres" class="tab hidden">
+      <h2 class="text-xl font-semibold mb-4">Paramètres fixes</h2>
+      <label class="block mb-2">Assurance mensuelle (€)</label>
+      <input type="number" id="assurance" value="54" class="border p-2 rounded mb-4 w-full" />
+      <label class="block mb-2">Boîtier Connect (€)</label>
+      <input type="number" id="connect" value="25" class="border p-2 rounded mb-4 w-full" />
+      <button onclick="saveSettings()" class="bg-blue-500 text-white px-4 py-2 rounded">💾 Sauvegarder</button>
+    </div>
 
-document.getElementById('exportBtn').addEventListener('click',()=>{const data={settings, rentals};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`roi-data-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0)});
-document.getElementById('importInput').addEventListener('change',e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(d.settings){settings=Object.assign({},settings,d.settings);saveJSON(KEY_SETTINGS,settings);applySettings()}if(Array.isArray(d.rentals)){rentals=d.rentals;saveJSON(KEY_RENTALS,rentals)}renderAll();alert('Import réussi ✅')}catch(err){alert('Fichier invalide ❌')}};r.readAsText(f)});
-</script>
+    <!-- Onglet Prévisions -->
+    <div id="previsions" class="tab hidden">
+      <h2 class="text-xl font-semibold mb-4">Prévisions & Point Mort</h2>
+      <canvas id="forecastChart" class="w-full h-64"></canvas>
+    </div>
+
+    <!-- Onglet Suivi -->
+    <div id="suivi" class="tab hidden">
+      <h2 class="text-xl font-semibold mb-4">Suivi Mensuel</h2>
+      <canvas id="monthlyChart" class="w-full h-64"></canvas>
+      <p id="summary" class="mt-4 font-bold"></p>
+    </div>
+  </div>
+
+  <script>
+    // Gestion onglets
+    function showTab(id) {
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.add('hidden'));
+      document.getElementById(id).classList.remove('hidden');
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('bg-blue-500','text-white'));
+      event.target.classList.add('bg-blue-500','text-white');
+    }
+
+    // Sauvegarde localStorage
+    let locations = JSON.parse(localStorage.getItem("locations")) || [];
+    let settings = JSON.parse(localStorage.getItem("settings")) || { assurance:54, connect:25 };
+
+    function renderTable(){
+      let tbody = document.getElementById("locationTable");
+      tbody.innerHTML = "";
+      locations.forEach((loc,i)=>{
+        let net = loc.revenu - loc.commission - loc.carburant;
+        tbody.innerHTML += `
+          <tr>
+            <td class="border p-2">${loc.date}</td>
+            <td class="border p-2">${loc.revenu}</td>
+            <td class="border p-2">${loc.commission}</td>
+            <td class="border p-2">${loc.carburant}</td>
+            <td class="border p-2 font-bold">${net}</td>
+            <td class="border p-2"><button onclick="deleteLoc(${i})" class="text-red-500">🗑️</button></td>
+          </tr>`;
+      });
+      updateCharts();
+    }
+
+    function deleteLoc(i){ locations.splice(i,1); saveData(); renderTable(); }
+    function saveData(){ localStorage.setItem("locations", JSON.stringify(locations)); }
+    function saveSettings(){
+      settings.assurance = parseFloat(document.getElementById("assurance").value);
+      settings.connect = parseFloat(document.getElementById("connect").value);
+      localStorage.setItem("settings", JSON.stringify(settings));
+      updateCharts();
+      alert("Paramètres sauvegardés ✅");
+    }
+
+    document.getElementById("locationForm").addEventListener("submit", e=>{
+      e.preventDefault();
+      let loc = {
+        date: document.getElementById("date").value,
+        revenu: parseFloat(document.getElementById("revenu").value),
+        commission: parseFloat(document.getElementById("commission").value),
+        carburant: parseFloat(document.getElementById("carburant").value||0)
+      };
+      locations.push(loc); saveData(); renderTable(); e.target.reset();
+    });
+
+    // Charts
+    let forecastChart, monthlyChart;
+    function updateCharts(){
+      let monthly = {};
+      locations.forEach(l=>{
+        let month = l.date.slice(0,7);
+        let net = l.revenu - l.commission - l.carburant;
+        monthly[month] = (monthly[month]||0) + net;
+      });
+      let months = Object.keys(monthly);
+      let nets = Object.values(monthly);
+      let costs = months.map(()=> -(settings.assurance+settings.connect));
+
+      if(monthlyChart){ monthlyChart.destroy(); }
+      monthlyChart = new Chart(document.getElementById("monthlyChart"),{
+        type:"bar",
+        data:{labels:months, datasets:[
+          {label:"Net",data:nets, backgroundColor:"green"},
+          {label:"Frais Fixes",data:costs, backgroundColor:"red"}
+        ]}
+      });
+
+      let total = nets.reduce((a,b)=>a+b,0);
+      let totalCost = costs.reduce((a,b)=>a+b,0);
+      document.getElementById("summary").innerText = 
+        `Bilan: ${total} € vs Frais ${-totalCost} € => ${(total+totalCost)>=0?"✅ Positif":"❌ Négatif"}`;
+    }
+
+    renderTable();
+    document.getElementById("assurance").value=settings.assurance;
+    document.getElementById("connect").value=settings.connect;
+    updateCharts();
+  </script>
 </body>
 </html>
