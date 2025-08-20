@@ -100,8 +100,12 @@
         <input type="number" id="kms" min="0" step="1" placeholder="ex. 250"/>
       </div>
       <div>
-        <label>Frais carburant & divers (€)</label>
+        <label>Frais divers (€)</label>
         <input type="number" id="extras" min="0" step="0.1" value="0"/>
+      </div>
+      <div>
+        <label>Ajustement carburant (+/− €)</label>
+        <input type="number" id="fuelAdj" step="0.1" value="0" />
       </div>
       <div class="md:col-span-2">
         <label>Notes</label>
@@ -123,13 +127,13 @@
       <table>
         <thead>
           <tr>
-            <th>Date</th><th>Jours</th><th>€/j</th><th>Km</th><th>Extras</th><th>Véhicule</th><th>Net loc</th><th>Notes</th><th></th>
+            <th>Date</th><th>Jours</th><th>€/j</th><th>Km</th><th>Frais</th><th>Carburant ±</th><th>Véhicule</th><th>Net loc</th><th>Notes</th><th></th>
           </tr>
         </thead>
         <tbody id="locTable"></tbody>
       </table>
     </div>
-    <p class="text-sm mt-2" style="color:var(--muted)">Net location = (prix × jours × (1–commission)) − usure(km×€/km) − extras.</p>
+    <p class="text-sm mt-2" style="color:var(--muted)">Net location = (prix × jours × (1–commission)) − usure(km×€/km) − frais divers + ajustement carburant.</p>
   </section>
 
   <!-- PARAMS -->
@@ -219,7 +223,7 @@
 
   <script>
     // ===== Storage & State =====
-    const KEY='roi_dark_v1';
+    const KEY='roi_dark_v2';
     const data = JSON.parse(localStorage.getItem(KEY) || '{}');
     const theme = data.theme || 'dark';            // 'dark' | 'light'
     let teslaOn   = data.teslaOn ?? false;
@@ -228,7 +232,8 @@
       clio:{ass:54, conn:25, ent:45},
       tesla:{ass:115, conn:0, ent:30}
     };
-    let locations = data.locations || []; // {id, date, jours, prixJour, kms, extras, notes, vehicule}
+    // locations: {id, date, jours, prixJour, kms, extras, fuelAdj, notes, vehicule}
+    let locations = data.locations || [];
 
     // ===== Theme init =====
     function applyTheme(){
@@ -294,6 +299,7 @@
         prixJour: Number($('prixJour').value||0),
         kms: $('kms').value ? Number($('kms').value) : 0,
         extras: Number($('extras').value||0),
+        fuelAdj: Number($('fuelAdj').value||0),
         notes: $('notes').value||'',
         vehicule: teslaToggle.checked ? $('vehicule').value : 'Clio'
       };
@@ -303,7 +309,7 @@
       renderTable();
     }
     function clearLocForm(){
-      ['date','jours','prixJour','kms','extras','notes'].forEach(id=>{
+      ['date','jours','prixJour','kms','extras','fuelAdj','notes'].forEach(id=>{
         if(id==='jours'){$(id).value=1;} else if(id==='prixJour'){$(id).value=30;} else { $(id).value=''; }
       });
       if(teslaToggle.checked) $('vehicule').value='Clio';
@@ -318,7 +324,9 @@
       const gross = loc.prixJour * (loc.jours||1);
       const after = gross * (1 - com);
       const wear  = (loc.kms||0) * (settings.wearPerKm||0);
-      return after - wear - (loc.extras||0);
+      const extras = (loc.extras||0);
+      const fuelAdj = (loc.fuelAdj||0); // + si tu factures, - si tu rembourses
+      return after - wear - extras + fuelAdj;
     }
 
     function clearFilters(){
@@ -332,7 +340,6 @@
       const m = $('filterMonth').value;
       const vf = $('filterVehicule').value;
 
-      // sort desc by date
       const arr = locations.slice().sort((a,b)=> new Date(b.date)-new Date(a.date))
         .filter(l=> (!m || monthKey(l.date)===m) && (vf==='ALL' || l.vehicule===vf));
 
@@ -345,6 +352,7 @@
           <td>${l.prixJour.toFixed(2)}</td>
           <td>${l.kms||'-'}</td>
           <td>${(l.extras||0).toFixed(2)}</td>
+          <td>${(l.fuelAdj||0).toFixed(2)}</td>
           <td>${l.vehicule||'Clio'}</td>
           <td><span class="pill" style="background:${net>=0?'rgba(16,185,129,.2)':'rgba(239,68,68,.2)'};color:${net>=0?'#10b981':'#ef4444'}">${net.toFixed(2)}€</span></td>
           <td title="${l.notes||''}" style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l.notes||''}</td>
@@ -457,7 +465,6 @@
 
       // Monthly fix by vehicle selection:
       const monthlyFix = months.map(m=>{
-        // If filter = specific veh, use that vehicle's fix; otherwise, sum both vehicles fix
         const useVehicles = (vehF==='ALL' ? ['Clio','Tesla'].filter(v=> teslaOn ? true : v==='Clio') : [vehF]);
         return useVehicles.reduce((sum,v)=>{
           const f = (v==='Tesla' ? (settings.tesla.ass+settings.tesla.conn+settings.tesla.ent)
@@ -468,12 +475,10 @@
 
       const monthlyAfter = monthlyNetBeforeFix.map((v,i)=> v - monthlyFix[i]);
 
-      // Month summary (selected or latest)
       const currentM = $('suiviMonth').value || months[months.length-1];
       if(currentM){
         const list = monthsMap[currentM] || [];
         const before = list.reduce((s,l)=> s + netLocation(l), 0);
-        // Fix: if ALL vehicles selected, sum both monthly fixes; else single
         const fix = (vehF==='ALL'
                       ? (teslaOn ? (settings.clio.ass+settings.clio.conn+settings.clio.ent + settings.tesla.ass+settings.tesla.conn+settings.tesla.ent)
                                  : (settings.clio.ass+settings.clio.conn+settings.clio.ent))
@@ -534,9 +539,9 @@
     });
 
     $('exportCsv').addEventListener('click', ()=>{
-      const rows = [['id','date','jours','prixJour','kms','extras','vehicule','net','notes']];
+      const rows = [['id','date','jours','prixJour','kms','extras','fuelAdj','vehicule','net','notes']];
       locations.forEach(l=> rows.push([
-        l.id, l.date, l.jours, l.prixJour, l.kms, l.extras, l.vehicule||'Clio', netLocation(l).toFixed(2), (l.notes||'').replace(/"/g,'""')
+        l.id, l.date, l.jours, l.prixJour, l.kms, l.extras, l.fuelAdj||0, l.vehicule||'Clio', netLocation(l).toFixed(2), (l.notes||'').replace(/"/g,'""')
       ]));
       const csv = rows.map(r=> r.map(x=> `"${String(x)}"`).join(',')).join('\n');
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
@@ -548,6 +553,18 @@
     });
 
     // First render
+    function loadParamsIntoUI(){
+      document.getElementById('commission').value = settings.commission;
+      document.getElementById('wearPerKm').value  = settings.wearPerKm;
+      document.getElementById('kmInclus').value   = settings.kmInclus;
+      document.getElementById('clioAss').value = settings.clio.ass;
+      document.getElementById('clioConn').value = settings.clio.conn;
+      document.getElementById('clioEnt').value = settings.clio.ent;
+      document.getElementById('teslaAss').value = settings.tesla.ass;
+      document.getElementById('teslaConn').value = settings.tesla.conn;
+      document.getElementById('teslaEnt').value = settings.tesla.ent;
+    }
+    loadParamsIntoUI();
     renderCharts();
   </script>
 </body>
