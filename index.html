@@ -8,134 +8,59 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
-      /* Graphite premium */
       --bg1:#0b0d10; --bg2:#111418; --card:rgba(22,26,32,.72); --text:#e7e9ee; --muted:#a4acb9;
       --border:rgba(255,255,255,.08); --ring:#7dd3fc;
-      --primary:#7c3aed; --primary-d:#6d28d9;
-      --pos:#16a34a; --neg:#ef4444;
-      --shadow:0 10px 40px rgba(0,0,0,.35);
-    }
-    .light{
-      --bg1:#f7f8fb; --bg2:#eef1f6; --card:rgba(255,255,255,.85); --text:#0f172a; --muted:#5b6576;
-      --border:rgba(15,23,42,.12); --ring:#0ea5e9;
       --primary:#4f46e5; --primary-d:#4338ca;
       --pos:#16a34a; --neg:#ef4444;
-      --shadow:0 10px 30px rgba(2,6,23,.08);
     }
-
-    /* Background with subtle gradients */
+    .light{
+      --bg1:#f7f8fb; --bg2:#eef1f6; --card:rgba(255,255,255,.9); --text:#0f172a; --muted:#5b6576;
+      --border:rgba(15,23,42,.12); --ring:#0ea5e9;
+      --primary:#2563eb; --primary-d:#1e40af;
+      --pos:#16a34a; --neg:#ef4444;
+    }
     body{
       min-height:100vh;
       background:
-        radial-gradient(1000px 600px at 15% -10%, rgba(124,58,237,.12), transparent 60%),
-        radial-gradient(900px 560px at 100% 10%, rgba(14,165,233,.10), transparent 55%),
+        radial-gradient(1000px 600px at 15% -10%, rgba(79,70,229,.14), transparent 60%),
+        radial-gradient(900px 560px at 100% 10%, rgba(14,165,233,.12), transparent 55%),
         linear-gradient(180deg,var(--bg1),var(--bg2));
       color:var(--text);
-      font-synthesis-weight: none;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
     }
-
-    .card{
-      background:var(--card);
-      border:1px solid var(--border);
-      border-radius:1.2rem;
-      padding:1.25rem;
-      box-shadow:var(--shadow);
-      backdrop-filter: blur(8px);
-      transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-    }
-    .card:hover{ transform:translateY(-2px); box-shadow:0 16px 48px rgba(0,0,0,.35); border-color:rgba(124,58,237,.25); }
-
-    .btn{
-      background:linear-gradient(180deg,var(--primary),var(--primary-d));
-      color:#fff; padding:.6rem 1rem; border-radius:.8rem; font-weight:700;
-      border:1px solid rgba(255,255,255,.08);
-      box-shadow: 0 6px 20px rgba(124,58,237,.35);
-      transition:transform .12s ease, box-shadow .12s ease, filter .12s ease;
-    }
-    .btn:hover{ transform:translateY(-1px); filter:brightness(1.04); }
-    .btn:active{ transform:translateY(0); box-shadow:none; }
-    .btn-ghost{
-      background:transparent; color:var(--text);
-      padding:.55rem .9rem; border-radius:.8rem; border:1px solid var(--border);
-      transition: background .12s ease, border-color .12s ease;
-    }
-    .btn-ghost:hover{ background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.16); }
-
-    input, select{
-      background:rgba(255,255,255,.03);
-      color:var(--text);
-      border:1px solid var(--border);
-      border-radius:.7rem;
-      padding:.6rem .7rem; width:100%;
-      outline: none;
-      transition:border-color .12s ease, box-shadow .12s ease, background .12s ease;
-    }
-    input:focus, select:focus{
-      border-color:var(--ring);
-      box-shadow:0 0 0 4px rgba(125,211,252,.18);
-      background:rgba(255,255,255,.06);
-    }
+    .card{ background:var(--card); border:1px solid var(--border); border-radius:1rem; padding:1.1rem; backdrop-filter: blur(8px); }
+    .btn{ background:linear-gradient(180deg,var(--primary),var(--primary-d)); color:#fff; padding:.55rem .95rem; border-radius:.7rem; font-weight:700; }
+    .btn-ghost{ background:transparent; border:1px solid var(--border); border-radius:.7rem; padding:.5rem .8rem; color:var(--text); }
+    input,select{ background:rgba(255,255,255,.03); color:var(--text); border:1px solid var(--border); border-radius:.6rem; padding:.55rem .65rem; width:100%; }
     label{ color:var(--muted); font-size:.9rem; }
-
-    table{ width:100%; border-collapse:collapse; }
-    th,td{ border-bottom:1px solid var(--border); padding:.6rem .65rem; }
-    th{ color:var(--muted); text-align:left; font-weight:600; letter-spacing:.01em; }
-
-    .pill{
-      font-size:.75rem; font-weight:800; padding:.25rem .6rem; border-radius:999px;
-    }
-
-    .toggle{ display:flex; align-items:center; gap:.6rem; cursor:pointer; user-select:none; }
-    .toggle input{
-      width:2.75rem; height:1.45rem; appearance:none;
-      background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.06));
-      border:1px solid var(--border); border-radius:999px; position:relative; outline:none;
-      transition: all .18s ease;
-    }
-    .toggle input:checked{ background:linear-gradient(180deg,var(--primary),var(--primary-d)); }
-    .toggle input:before{
-      content:""; position:absolute; top:2px; left:2px; width:1.15rem; height:1.15rem; background:#fff; border-radius:999px;
-      box-shadow:0 3px 12px rgba(0,0,0,.25);
-      transition: all .18s ease;
-    }
-    .toggle input:checked:before{ transform:translateX(1.25rem); }
-
+    table{ width:100%; border-collapse:collapse; } th,td{ border-bottom:1px solid var(--border); padding:.55rem .6rem; } th{ color:var(--muted); text-align:left; }
+    .pill{ font-size:.75rem; font-weight:800; padding:.2rem .55rem; border-radius:999px; }
     .grid-2{ display:grid; grid-template-columns:repeat(1,minmax(0,1fr)); gap:1rem; }
     .grid-3{ display:grid; grid-template-columns:repeat(1,minmax(0,1fr)); gap:1rem; }
     .grid-4{ display:grid; grid-template-columns:repeat(1,minmax(0,1fr)); gap:1rem; }
-    @media(min-width:768px){
-      .grid-2{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .grid-3{ grid-template-columns:repeat(3,minmax(0,1fr)); }
-      .grid-4{ grid-template-columns:repeat(4,minmax(0,1fr)); }
-    }
-    .kbd{ font-size:.75rem; padding:.15rem .35rem; border-radius:.4rem; border:1px solid var(--border); color:var(--muted); }
-
-    .fade-in{ animation:fade .25s ease both; }
-    @keyframes fade{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);} }
+    @media(min-width:768px){ .grid-2{ grid-template-columns:repeat(2,1fr); } .grid-3{ grid-template-columns:repeat(3,1fr); } .grid-4{ grid-template-columns:repeat(4,1fr); } }
+    .toggle{ display:flex; align-items:center; gap:.5rem; cursor:pointer; }
+    .toggle input{ width:2.6rem; height:1.35rem; appearance:none; border:1px solid var(--border); border-radius:999px; position:relative; background:rgba(255,255,255,.08); }
+    .toggle input:checked{ background:linear-gradient(180deg,var(--primary),var(--primary-d)); }
+    .toggle input:before{ content:""; position:absolute; top:2px; left:2px; width:1.05rem; height:1.05rem; background:#fff; border-radius:999px; transition:all .18s ease; }
+    .toggle input:checked:before{ transform:translateX(1.2rem); }
   </style>
 </head>
 <body>
   <header class="mb-6 max-w-7xl mx-auto px-4">
     <div class="flex items-center justify-between gap-4">
-      <h1 class="text-2xl font-extrabold tracking-tight">📊 Dashboard ROI – Flotte Auto</h1>
+      <h1 class="text-2xl font-extrabold">📊 Dashboard ROI – Flotte Auto</h1>
       <div class="flex flex-wrap items-center gap-2">
-        <label class="toggle" title="Basculer thème clair/sombre">
-          <span style="color:var(--muted)">Thème clair</span><input type="checkbox" id="themeToggle"/>
-        </label>
-        <label class="toggle" title="Activer/Désactiver Tesla">
-          <span style="color:var(--muted)">Tesla</span><input type="checkbox" id="teslaToggle"/>
-        </label>
+        <label class="toggle" title="Basculer thème clair/sombre"><span style="color:var(--muted)">Thème clair</span><input type="checkbox" id="themeToggle"/></label>
         <button id="exportJson" class="btn-ghost">Export JSON</button>
         <label class="btn-ghost cursor-pointer">Import JSON<input id="importJson" type="file" accept="application/json" class="hidden"/></label>
         <button id="exportCsv" class="btn-ghost">Export CSV</button>
       </div>
     </div>
-
     <div class="mt-4 flex flex-wrap gap-2">
       <button class="btn" onclick="showTab('locations')">Locations réelles</button>
-      <button class="btn" onclick="showTab('params')">Paramètres</button>
+      <button class="btn" onclick="showTab('vehicles')">Véhicules</button>
+      <button class="btn" onclick="showTab('params')">Paramètres globaux</button>
       <button class="btn" onclick="showTab('previsions')">Prévisions & Tarifs</button>
       <button class="btn" onclick="showTab('suivi')">Suivi mensuel</button>
     </div>
@@ -143,27 +68,28 @@
 
   <main class="max-w-7xl mx-auto px-4 space-y-6">
     <!-- LOCATIONS -->
-    <section id="locations" class="card hidden fade-in">
+    <section id="locations" class="card hidden">
       <h2 class="text-xl font-semibold mb-3">📅 Locations réelles</h2>
       <div class="grid-4">
         <div><label>Début</label><input type="date" id="date"/></div>
         <div><label>Jours</label><input type="number" id="jours" min="1" value="1"/></div>
         <div><label>Prix proprio €/jour</label><input type="number" id="prixJour" min="0" step="0.1" value="30"/></div>
-        <div id="vehiculeWrap" class="hidden"><label>Véhicule</label><select id="vehicule"><option value="Clio">Clio</option><option value="Tesla">Tesla</option></select></div>
+        <div>
+          <label>Véhicule</label>
+          <select id="vehicule"></select>
+        </div>
         <div><label>Km totaux (optionnel)</label><input type="number" id="kms" min="0" step="1" placeholder="ex. 250"/></div>
         <div><label>Frais divers (€)</label><input type="number" id="extras" min="0" step="0.1" value="0"/></div>
         <div><label>Ajustement carburant (+/− €)</label><input type="number" id="fuelAdj" step="0.1" value="0"/></div>
         <div class="md:col-span-2"><label>Notes</label><input type="text" id="notes" placeholder="Ex. week-end, pro, remise…"/></div>
       </div>
-
       <div class="mt-3 flex flex-wrap gap-2">
         <button id="saveBtn" class="btn" onclick="saveLocation()">Enregistrer</button>
         <button id="cancelEditBtn" class="btn-ghost hidden" onclick="cancelEdit()">Annuler</button>
-        <select id="filterVehicule" class="w-auto"><option value="ALL">Tous véhicules</option><option value="Clio">Clio</option><option value="Tesla">Tesla</option></select>
-        <input type="month" id="filterMonth" class="w-auto"/><button class="btn-ghost" onclick="clearFilters()">Effacer filtres</button>
-        <span class="ml-auto text-xs" style="color:var(--muted)">Astuce : double-clique une ligne pour l’éditer <span class="kbd">⏎</span></span>
+        <select id="filterVehicule" class="w-auto"></select>
+        <input type="month" id="filterMonth" class="w-auto"/>
+        <button class="btn-ghost" onclick="clearFilters()">Effacer filtres</button>
       </div>
-
       <div class="mt-4 overflow-x-auto">
         <table>
           <thead><tr><th>Date</th><th>Jours</th><th>€/j</th><th>Km</th><th>Frais</th><th>Carburant ±</th><th>Véhicule</th><th>Net loc</th><th>Notes</th><th>Actions</th></tr></thead>
@@ -173,74 +99,75 @@
       <p class="text-sm mt-2" style="color:var(--muted)">Net location = (prix × jours × (1–commission)) − usure(km×€/km) − frais divers + ajustement carburant.</p>
     </section>
 
-    <!-- PARAMETRES -->
-    <section id="params" class="card hidden fade-in">
-      <h2 class="text-xl font-semibold mb-3">⚙️ Paramètres</h2>
+    <!-- VEHICLES MANAGER -->
+    <section id="vehicles" class="card hidden">
+      <h2 class="text-xl font-semibold mb-3">🚗 Véhicules</h2>
+      <div class="mb-3 flex flex-wrap gap-2">
+        <button class="btn" onclick="addVehicle()">+ Ajouter un véhicule</button>
+      </div>
+      <div id="vehiclesList" class="grid-2"></div>
+    </section>
+
+    <!-- PARAMS GLOBAUX -->
+    <section id="params" class="card hidden">
+      <h2 class="text-xl font-semibold mb-3">⚙️ Paramètres globaux</h2>
       <div class="grid-3">
         <div><label>Commission plateforme (%)</label><input type="number" id="commission" min="0" step="0.1" value="10"/></div>
         <div><label>Usure €/km</label><input type="number" id="wearPerKm" min="0" step="0.01" value="0.12"/></div>
-        <div><label>Km inclus / jour</label><input type="number" id="kmInclus" min="0" step="1" value="100"/></div>
+        <div><label>Km inclus / jour (info)</label><input type="number" id="kmInclus" min="0" step="1" value="100"/></div>
+      </div>
+      <div class="mt-4"><button class="btn" onclick="saveGlobals()">💾 Sauvegarder</button><span id="savedTag" class="ml-3 text-sm" style="color:var(--muted); display:none;">✔️ Sauvegardé</span></div>
+    </section>
+
+    <!-- PREVISIONS (RETHINK) -->
+    <section id="previsions" class="card hidden">
+      <h2 class="text-xl font-semibold mb-3">📈 Prévisions & Tarifs</h2>
+      <div class="grid-4">
+        <div>
+          <label>Véhicule</label>
+          <select id="simVehicule"></select>
+        </div>
+        <div><label>Jours loués / mois</label><input type="number" id="simDays" value="12" min="0"/></div>
+        <div><label>Prix proprio €/j</label><input type="number" id="simPrice" value="30" step="0.1" min="0"/></div>
+        <div><label>Km/j (moy.)</label><input type="number" id="simKmDay" value="100" min="0"/></div>
       </div>
 
-      <div class="mt-4 grid-2">
-        <div class="card">
-          <h3 class="font-semibold mb-2">Clio – frais fixes / mois</h3>
-          <div class="grid-4">
-            <div><label>Assurance</label><input type="number" id="clioAss" value="54"/></div>
-            <div><label>Connect</label><input type="number" id="clioConn" value="25"/></div>
-            <div><label>Entretien</label><input type="number" id="clioEnt" value="45"/></div>
-            <div><label>Amort. véhicule</label><input type="number" id="clioAmort" value="181"/></div>
-          </div>
-          <div class="mt-3 grid-3">
-            <div><label>Frais acquisition (total €)</label><input type="number" id="clioAcqTotal" value="0"/></div>
-            <div><label>Durée amort. acquisition (mois)</label><input type="number" id="clioAcqMonths" value="60"/></div>
-            <div><label>Amort. acquisition (auto)</label><input type="number" id="clioAcqAmort" value="0" disabled/></div>
-          </div>
-        </div>
-
-        <div class="card" id="teslaParamsCard" style="display:none;">
-          <h3 class="font-semibold mb-2">Tesla – frais fixes / mois</h3>
-          <div class="grid-4">
-            <div><label>Assurance</label><input type="number" id="teslaAss" value="115"/></div>
-            <div><label>Connect</label><input type="number" id="teslaConn" value="0"/></div>
-            <div><label>Entretien</label><input type="number" id="teslaEnt" value="30"/></div>
-            <div><label>Amort. véhicule</label><input type="number" id="teslaAmort" value="0"/></div>
-          </div>
-        </div>
+      <div class="mt-3 grid-3">
+        <div><label>Commission plateforme (%)</label><input type="number" id="simCommission" step="0.1"/></div>
+        <div><label>Usure €/km</label><input type="number" id="simWear" step="0.01"/></div>
+        <div><label>Saisonnalité de base (%)</label><input type="number" id="simSeasonBase" value="100"/></div>
       </div>
 
       <div class="mt-4">
-        <button class="btn" onclick="saveParams()">💾 Sauvegarder</button>
-        <span id="savedTag" class="ml-3 text-sm" style="color:var(--muted); display:none;">✔️ Sauvegardé</span>
-      </div>
-    </section>
-
-    <!-- PREVISIONS -->
-    <section id="previsions" class="card hidden fade-in">
-      <h2 class="text-xl font-semibold mb-3">📈 Prévisions & Tarifs</h2>
-      <div class="grid-4">
-        <div><label>Jours loués / mois</label><input type="number" id="simDays" value="12"/></div>
-        <div><label>Prix proprio €/j</label><input type="number" id="simPrice" value="30" step="0.1"/></div>
-        <div><label>Km/j (moy.)</label><input type="number" id="simKmDay" value="100"/></div>
-        <div><label>Saisonnalité (%)</label><input type="number" id="simSeason" value="100"/></div>
-      </div>
-      <div class="mt-3 flex gap-2">
-        <select id="simVehicule" class="w-auto"><option value="Clio">Clio</option><option value="Tesla">Tesla</option></select>
         <button class="btn" onclick="runSim()">Calculer</button>
       </div>
-      <div id="simOut" class="mt-4"></div>
+
+      <div id="simSummary" class="mt-4 grid-3"></div>
 
       <div class="mt-6">
-        <h3 class="font-semibold mb-2">Prévisions 12 mois (saisonnalité simple)</h3>
-        <canvas id="simChart" height="140"></canvas>
+        <h3 class="font-semibold mb-2">Prévision mensuelle (12 mois)</h3>
+        <canvas id="simChart" height="160"></canvas>
+        <div class="mt-3 overflow-x-auto">
+          <table>
+            <thead>
+              <tr><th>Mois</th><th>CA brut</th><th>Après commission</th><th>Usure</th><th>Frais fixes</th><th>Net</th></tr>
+            </thead>
+            <tbody id="simTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="mt-6">
+        <h3 class="font-semibold mb-2">Sensibilité rapide</h3>
+        <div id="simWhatIf" class="grid-3"></div>
       </div>
     </section>
 
     <!-- SUIVI -->
-    <section id="suivi" class="card hidden fade-in">
+    <section id="suivi" class="card hidden">
       <h2 class="text-xl font-semibold mb-3">📊 Suivi mensuel</h2>
       <div class="flex flex-wrap items-center gap-2 mb-3">
-        <select id="suiviVehicule" class="w-auto"><option value="ALL">Tous véhicules</option><option value="Clio">Clio</option><option value="Tesla">Tesla</option></select>
+        <select id="suiviVehicule" class="w-auto"></select>
         <input type="month" id="suiviMonth" class="w-auto" />
       </div>
       <div class="grid-2">
@@ -253,102 +180,183 @@
   </main>
 
   <script>
-    // ===== State & Storage =====
-    const KEY='roi_graphite_v1';
+    // ========= Storage & State =========
+    const KEY='roi_multi_v1';
     const data = JSON.parse(localStorage.getItem(KEY) || '{}');
     const theme = data.theme || 'dark';
-    let teslaOn = data.teslaOn ?? false;
-    let settings = data.settings || {
-      commission:10, wearPerKm:0.12, kmInclus:100,
-      clio:{ass:54, conn:25, ent:45, amort:181, acqTotal:0, acqMonths:60},
-      tesla:{ass:115, conn:0, ent:30, amort:0}
-    };
-    let locations = data.locations || []; // {id,date,jours,prixJour,kms,extras,fuelAdj,notes,vehicule}
+
+    // Vehicles: {id, name, active, costs:{ass,conn,ent,amort, acqTotal, acqMonths}}
+    let vehicles = data.vehicles || [
+      { id: 'clio',  name:'Clio',  active:true,  costs:{ass:54, conn:25, ent:45, amort:181, acqTotal:0, acqMonths:60} },
+      { id: 'tesla', name:'Tesla', active:true,  costs:{ass:115, conn:0, ent:30, amort:0,   acqTotal:0, acqMonths:60} }
+    ];
+    // Globals
+    let globals = data.globals || { commission:10, wearPerKm:0.12, kmInclus:100 };
+    // Locations: {id, date, jours, prixJour, kms, extras, fuelAdj, notes, vehiculeId}
+    let locations = data.locations || [];
     let editId = null;
 
-    // ===== Theme =====
+    // ========= Theme =========
     const themeToggle = document.getElementById('themeToggle');
     function applyTheme(){ themeToggle.checked ? document.documentElement.classList.add('light') : document.documentElement.classList.remove('light'); }
-    themeToggle.checked = (theme==='light'); applyTheme();
-    themeToggle.addEventListener('change', ()=>{ data.theme = themeToggle.checked?'light':'dark'; saveAll(); applyTheme(); });
+    themeToggle.checked=(theme==='light'); applyTheme();
+    themeToggle.addEventListener('change', ()=>{ data.theme=themeToggle.checked?'light':'dark'; saveAll(); applyTheme(); });
 
-    // ===== Tesla toggle & UI =====
-    const teslaToggle = document.getElementById('teslaToggle'); teslaToggle.checked = !!teslaOn;
-    function applyTeslaUI(){
-      document.getElementById('vehiculeWrap').style.display = teslaToggle.checked ? 'block' : 'none';
-      document.getElementById('teslaParamsCard').style.display = teslaToggle.checked ? 'block' : 'none';
-      document.getElementById('simVehicule').style.display = teslaToggle.checked ? 'inline-block' : 'none';
-      document.querySelectorAll('#filterVehicule, #suiviVehicule').forEach(sel=>{
-        sel.querySelectorAll('option[value="Tesla"]').forEach(o=> o.disabled = !teslaToggle.checked);
+    // ========= Save =========
+    function saveAll(){ localStorage.setItem(KEY, JSON.stringify({theme: themeToggle.checked?'light':'dark', vehicles, globals, locations})); }
+    const $ = id=>document.getElementById(id);
+    const euro = n=>`${(n||0).toFixed(2)}€`;
+    const monthKey = d=> d?.slice(0,7);
+
+    // ========= Vehicles Manager =========
+    function renderVehiclesUI(){
+      // Fill selects
+      const activeVehicles = vehicles.filter(v=> v.active);
+      const vehSelects = ['vehicule','filterVehicule','simVehicule','suiviVehicule'];
+      vehSelects.forEach(id=>{
+        const el=$(id); if(!el) return;
+        el.innerHTML='';
+        if(id==='filterVehicule' || id==='suiviVehicule'){
+          const optAll=document.createElement('option'); optAll.value='ALL'; optAll.textContent='Tous véhicules'; el.appendChild(optAll);
+        }
+        activeVehicles.forEach(v=>{
+          const o=document.createElement('option'); o.value=v.id; o.textContent=v.name; el.appendChild(o);
+        });
       });
-    }
-    applyTeslaUI();
-    teslaToggle.addEventListener('change', ()=>{ teslaOn = teslaToggle.checked; data.teslaOn=teslaOn; saveAll(); applyTeslaUI(); renderTable(); renderCharts(); });
 
-    // ===== Tabs =====
+      // Vehicles cards
+      const wrap=$('vehiclesList'); wrap.innerHTML='';
+      vehicles.forEach(v=>{
+        const c=v.costs||{};
+        const card=document.createElement('div'); card.className='card';
+        card.innerHTML=`
+          <div class="flex items-center justify-between">
+            <input value="${v.name}" data-id="${v.id}" class="veh-name" style="max-width:240px"/>
+            <label class="toggle">
+              <span style="color:var(--muted)">Actif</span>
+              <input type="checkbox" ${v.active?'checked':''} data-id="${v.id}" class="veh-active"/>
+            </label>
+          </div>
+          <div class="grid-4 mt-3">
+            <div><label>Assurance</label><input type="number" step="0.1" value="${c.ass||0}" class="veh-ass" data-id="${v.id}"/></div>
+            <div><label>Connect</label><input type="number" step="0.1" value="${c.conn||0}" class="veh-conn" data-id="${v.id}"/></div>
+            <div><label>Entretien</label><input type="number" step="0.1" value="${c.ent||0}" class="veh-ent" data-id="${v.id}"/></div>
+            <div><label>Amort. véhicule</label><input type="number" step="0.1" value="${c.amort||0}" class="veh-amort" data-id="${v.id}"/></div>
+          </div>
+          <div class="grid-3 mt-3">
+            <div><label>Frais acquisition (total €)</label><input type="number" step="0.1" value="${c.acqTotal||0}" class="veh-acqTotal" data-id="${v.id}"/></div>
+            <div><label>Durée amort. acquisition (mois)</label><input type="number" value="${c.acqMonths||60}" class="veh-acqMonths" data-id="${v.id}"/></div>
+            <div><label>Amort. acquisition (auto)</label><input type="number" value="${(c.acqTotal||0)/Math.max(1,(c.acqMonths||60))}" disabled/></div>
+          </div>
+          <div class="mt-3 flex gap-2">
+            <button class="btn" onclick="saveVehicles()">💾 Sauvegarder</button>
+            <button class="btn-ghost" onclick="removeVehicle('${v.id}')">Supprimer</button>
+          </div>
+        `;
+        wrap.appendChild(card);
+      });
+
+      // Wire inputs
+      wrap.querySelectorAll('.veh-name').forEach(i=> i.oninput = e=>{
+        const id=e.target.dataset.id; const v=vehicles.find(x=>x.id===id); if(v){ v.name=e.target.value; saveAll(); renderVehiclesUI(); }
+      });
+      wrap.querySelectorAll('.veh-active').forEach(i=> i.onchange = e=>{
+        const id=e.target.dataset.id; const v=vehicles.find(x=>x.id===id); if(v){ v.active=e.target.checked; saveAll(); renderVehiclesUI(); }
+      });
+      wrap.querySelectorAll('.veh-ass').forEach(i=> i.oninput = e=>{ const v=vehicles.find(x=>x.id===e.target.dataset.id); if(v){ v.costs.ass=Number(e.target.value||0); saveAll(); }});
+      wrap.querySelectorAll('.veh-conn').forEach(i=> i.oninput = e=>{ const v=vehicles.find(x=>x.id===e.target.dataset.id); if(v){ v.costs.conn=Number(e.target.value||0); saveAll(); }});
+      wrap.querySelectorAll('.veh-ent').forEach(i=> i.oninput = e=>{ const v=vehicles.find(x=>x.id===e.target.dataset.id); if(v){ v.costs.ent=Number(e.target.value||0); saveAll(); }});
+      wrap.querySelectorAll('.veh-amort').forEach(i=> i.oninput = e=>{ const v=vehicles.find(x=>x.id===e.target.dataset.id); if(v){ v.costs.amort=Number(e.target.value||0); saveAll(); }});
+      wrap.querySelectorAll('.veh-acqTotal').forEach(i=> i.oninput = e=>{ const v=vehicles.find(x=>x.id===e.target.dataset.id); if(v){ v.costs.acqTotal=Number(e.target.value||0); saveAll(); renderVehiclesUI(); }});
+      wrap.querySelectorAll('.veh-acqMonths').forEach(i=> i.oninput = e=>{ const v=vehicles.find(x=>x.id===e.target.dataset.id); if(v){ v.costs.acqMonths=Math.max(1,Number(e.target.value||1)); saveAll(); renderVehiclesUI(); }});
+    }
+    function addVehicle(){
+      const id = 'veh_'+Math.random().toString(36).slice(2,8);
+      vehicles.push({ id, name:'Nouveau véhicule', active:true, costs:{ass:0,conn:0,ent:0,amort:0,acqTotal:0,acqMonths:60} });
+      saveAll(); renderVehiclesUI(); renderTable(); renderCharts(); fillSimDefaults();
+    }
+    function removeVehicle(id){
+      if(!confirm('Supprimer ce véhicule ?')) return;
+      vehicles = vehicles.filter(v=> v.id!==id);
+      // Also clean locations pointing to it
+      locations = locations.filter(l=> l.vehiculeId!==id);
+      saveAll(); renderVehiclesUI(); renderTable(); renderCharts(); fillSimDefaults();
+    }
+    function saveVehicles(){ saveAll(); alert('Véhicules sauvegardés ✅'); fillSimDefaults(); }
+
+    // ========= Globals =========
+    function loadGlobals(){ $('commission').value=globals.commission; $('wearPerKm').value=globals.wearPerKm; $('kmInclus').value=globals.kmInclus; }
+    function saveGlobals(){
+      globals.commission=Number($('commission').value||0);
+      globals.wearPerKm=Number($('wearPerKm').value||0);
+      globals.kmInclus=Number($('kmInclus').value||0);
+      saveAll(); document.getElementById('savedTag').style.display='inline'; setTimeout(()=>document.getElementById('savedTag').style.display='none',1200);
+    }
+
+    // ========= Tabs =========
     function showTab(id){
       document.querySelectorAll('section.card').forEach(s=> s.classList.add('hidden'));
-      const el = document.getElementById(id);
-      el.classList.remove('hidden');
+      document.getElementById(id).classList.remove('hidden');
       if(id==='suivi'){ renderCharts(); }
-    }
-    showTab('locations');
-
-    // ===== Helpers =====
-    const $ = id => document.getElementById(id);
-    const euro = n => `${(n||0).toFixed(2)}€`;
-    const monthKey = d => d?.slice(0,7);
-    function saveAll(){ localStorage.setItem(KEY, JSON.stringify({theme: themeToggle.checked?'light':'dark', teslaOn, settings, locations})); }
-    function setEditMode(on){ $('saveBtn').textContent = on ? 'Mettre à jour' : 'Enregistrer'; $('cancelEditBtn').classList.toggle('hidden', !on); }
-    function toastSaved(){
-      const tag=document.getElementById('savedTag'); if(!tag) return;
-      tag.style.display='inline'; setTimeout(()=>tag.style.display='none',1200);
+      if(id==='previsions'){ fillSimDefaults(); }
     }
 
-    // ===== Locations CRUD =====
+    // ========= Locations CRUD =========
     function saveLocation(){
-      const date = $('date').value; if(!date) return alert('Choisis une date');
-      const obj = {
+      const date=$('date').value; if(!date) return alert('Choisis une date');
+      const obj={
         date, jours:Number($('jours').value||1), prixJour:Number($('prixJour').value||0),
         kms:$('kms').value?Number($('kms').value):0, extras:Number($('extras').value||0),
         fuelAdj:Number($('fuelAdj').value||0), notes:$('notes').value||'',
-        vehicule: teslaToggle.checked ? $('vehicule').value : 'Clio'
+        vehiculeId: $('vehicule').value
       };
-      if(editId){ locations = locations.map(l=> l.id===editId ? {...l, ...obj} : l); editId=null; setEditMode(false); }
-      else { const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()); locations.push({id, ...obj}); }
+      if(editId){ locations = locations.map(l=> l.id===editId ? {...l, ...obj} : l); editId=null; $('cancelEditBtn').classList.add('hidden'); $('saveBtn').textContent='Enregistrer'; }
+      else { const id=crypto.randomUUID?crypto.randomUUID():String(Date.now()); locations.push({id, ...obj}); }
       saveAll(); clearLocForm(); renderTable(); renderCharts();
     }
-    function cancelEdit(){ editId=null; clearLocForm(); setEditMode(false); }
-    function clearLocForm(){ $('date').value=''; $('jours').value=1; $('prixJour').value=30; $('kms').value=''; $('extras').value='0'; $('fuelAdj').value='0'; $('notes').value=''; if(teslaToggle.checked) $('vehicule').value='Clio'; }
+    function cancelEdit(){ editId=null; clearLocForm(); $('cancelEditBtn').classList.add('hidden'); $('saveBtn').textContent='Enregistrer'; }
+    function clearLocForm(){ $('date').value=''; $('jours').value=1; $('prixJour').value=30; $('kms').value=''; $('extras').value='0'; $('fuelAdj').value='0'; $('notes').value=''; }
     function removeLoc(id){ locations = locations.filter(l=> l.id!==id); saveAll(); renderTable(); renderCharts(); }
     function editLoc(id){
-      const l = locations.find(x=> x.id===id); if(!l) return;
-      editId=id; $('date').value=l.date||''; $('jours').value=l.jours??1; $('prixJour').value=l.prixJour??0; $('kms').value=l.kms??''; $('extras').value=l.extras??0; $('fuelAdj').value=l.fuelAdj??0; $('notes').value=l.notes||''; if(teslaToggle.checked && l.vehicule) $('vehicule').value=l.vehicule; setEditMode(true); window.scrollTo({top:0,behavior:'smooth'});
-    }
-    // dblclick to edit
-    function dblEdit(id){ editLoc(id); }
-
-    // ===== Calculs =====
-    function netLocation(loc){
-      const com=(settings.commission||0)/100;
-      const after = (loc.prixJour * (loc.jours||1)) * (1-com);
-      const wear  = (loc.kms||0) * (settings.wearPerKm||0);
-      return after - wear - (loc.extras||0) + (loc.fuelAdj||0);
-    }
-    function clioAcqAmortMonthly(){
-      const total = Number(settings.clio.acqTotal||0);
-      const months = Math.max(1, Number(settings.clio.acqMonths||0));
-      return total / months;
+      const l=locations.find(x=>x.id===id); if(!l) return;
+      editId=id; $('date').value=l.date||''; $('jours').value=l.jours??1; $('prixJour').value=l.prixJour??0; $('kms').value=l.kms??''; $('extras').value=l.extras??0; $('fuelAdj').value=l.fuelAdj??0; $('notes').value=l.notes||'';
+      $('vehicule').value=l.vehiculeId; $('cancelEditBtn').classList.remove('hidden'); $('saveBtn').textContent='Mettre à jour'; window.scrollTo({top:0,behavior:'smooth'});
     }
 
-    // ===== Table Locations =====
-    function clearFilters(){ $('filterMonth').value=''; $('filterVehicule').value='ALL'; renderTable(); }
+    // ========= Calculs =========
+    function vehicleById(id){ return vehicles.find(v=> v.id===id); }
+    function fixedCostsMonthly(v){
+      if(!v) return 0; const c=v.costs||{};
+      const acq = (c.acqTotal||0)/Math.max(1,(c.acqMonths||60));
+      return (c.ass||0)+(c.conn||0)+(c.ent||0)+(c.amort||0)+acq;
+    }
+    function fixedCostsBreakdown(v){
+      if(!v) return {ass:0,conn:0,ent:0,amort:0,acq:0};
+      const c=v.costs||{}; return { ass:c.ass||0, conn:c.conn||0, ent:c.ent||0, amort:c.amort||0, acq:(c.acqTotal||0)/Math.max(1,(c.acqMonths||60)) };
+    }
+    function netLocation(l){
+      const com=(globals.commission||0)/100;
+      const after=(l.prixJour*(l.jours||1))*(1-com);
+      const wear=(l.kms||0)*(globals.wearPerKm||0);
+      return after - wear - (l.extras||0) + (l.fuelAdj||0);
+    }
+
+    // ========= Table Locations =========
+    function fillFilters(){
+      const filt=$('filterVehicule'); filt.innerHTML='';
+      const optAll=document.createElement('option'); optAll.value='ALL'; optAll.textContent='Tous véhicules'; filt.appendChild(optAll);
+      vehicles.filter(v=> v.active).forEach(v=>{ const o=document.createElement('option'); o.value=v.id; o.textContent=v.name; filt.appendChild(o); });
+    }
+    function fillVehSelect(){
+      const sel=$('vehicule'); sel.innerHTML='';
+      vehicles.filter(v=> v.active).forEach(v=>{ const o=document.createElement('option'); o.value=v.id; o.textContent=v.name; sel.appendChild(o); });
+    }
     function renderTable(){
       const tbody=$('locTable'); tbody.innerHTML='';
-      const m=$('filterMonth').value; const vf=$('filterVehicule').value;
-      const arr = locations.slice().sort((a,b)=> new Date(b.date)-new Date(a.date)).filter(l=> (!m||monthKey(l.date)===m) && (vf==='ALL'||l.vehicule===vf));
+      const m=$('filterMonth').value; const vf=$('filterVehicule').value||'ALL';
+      const arr=locations.slice().sort((a,b)=> new Date(b.date)-new Date(a.date)).filter(l=> (!m||monthKey(l.date)===m) && (vf==='ALL'||l.vehiculeId===vf));
       for(const l of arr){
-        const net=netLocation(l);
+        const v=vehicleById(l.vehiculeId); const net=netLocation(l);
         const tr=document.createElement('tr');
         tr.innerHTML=`
           <td>${l.date}</td><td>${l.jours||1}</td>
@@ -356,200 +364,226 @@
           <td>${l.kms||'-'}</td>
           <td>${(l.extras||0).toFixed(2)}</td>
           <td>${(l.fuelAdj||0).toFixed(2)}</td>
-          <td>${l.vehicule||'Clio'}</td>
+          <td>${v? v.name : '—'}</td>
           <td><span class="pill" style="background:${net>=0?'rgba(22,163,74,.18)':'rgba(239,68,68,.18)'};color:${net>=0?'#16a34a':'#ef4444'}">${net.toFixed(2)}€</span></td>
           <td title="${(l.notes||'').replace(/"/g,'&quot;')}" style="max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l.notes||''}</td>
           <td class="whitespace-nowrap">
             <button class="btn-ghost" onclick="editLoc('${l.id}')">✏️</button>
             <button class="btn-ghost" onclick="removeLoc('${l.id}')">🗑️</button>
           </td>`;
-        tr.ondblclick = ()=> dblEdit(l.id);
         tbody.appendChild(tr);
       }
     }
-    document.getElementById('filterMonth').addEventListener('change', renderTable);
-    document.getElementById('filterVehicule').addEventListener('change', renderTable);
-    renderTable();
+    $('filterMonth').addEventListener('change', renderTable);
+    $('filterVehicule').addEventListener('change', renderTable);
 
-    // ===== Params UI =====
-    function loadParamsIntoUI(){
-      $('commission').value=settings.commission; $('wearPerKm').value=settings.wearPerKm; $('kmInclus').value=settings.kmInclus;
-      $('clioAss').value=settings.clio.ass; $('clioConn').value=settings.clio.conn; $('clioEnt').value=settings.clio.ent; $('clioAmort').value=settings.clio.amort;
-      $('clioAcqTotal').value=settings.clio.acqTotal||0; $('clioAcqMonths').value=settings.clio.acqMonths||60;
-      $('clioAcqAmort').value=(settings.clio.acqTotal? (Number(settings.clio.acqTotal)/Math.max(1,Number(settings.clio.acqMonths||0))).toFixed(2):0);
-      $('teslaAss').value=settings.tesla.ass; $('teslaConn').value=settings.tesla.conn; $('teslaEnt').value=settings.tesla.ent; $('teslaAmort').value=settings.tesla.amort;
-    }
-    function saveParams(){
-      settings.commission=Number($('commission').value||0);
-      settings.wearPerKm=Number($('wearPerKm').value||0);
-      settings.kmInclus=Number($('kmInclus').value||0);
-      settings.clio={ ass:Number($('clioAss').value||0), conn:Number($('clioConn').value||0), ent:Number($('clioEnt').value||0), amort:Number($('clioAmort').value||0),
-        acqTotal:Number($('clioAcqTotal').value||0), acqMonths:Number($('clioAcqMonths').value||60) };
-      settings.tesla={ ass:Number($('teslaAss').value||0), conn:Number($('teslaConn').value||0), ent:Number($('teslaEnt').value||0), amort:Number($('teslaAmort').value||0) };
-      $('clioAcqAmort').value = (settings.clio.acqTotal/Math.max(1,settings.clio.acqMonths)).toFixed(2);
-      saveAll(); toastSaved(); renderCharts();
-    }
-    loadParamsIntoUI();
-
-    // ===== Prévisions (incluant amort. acquisition Clio) =====
+    // ========= Prévisions & Tarifs (rethink) =========
     let simChart;
+    function fillSimDefaults(){
+      const sel=$('simVehicule'); sel.innerHTML='';
+      vehicles.filter(v=> v.active).forEach(v=>{ const o=document.createElement('option'); o.value=v.id; o.textContent=v.name; sel.appendChild(o); });
+      $('simCommission').value = globals.commission;
+      $('simWear').value = globals.wearPerKm;
+      if(!sel.value && vehicles.filter(v=>v.active)[0]) sel.value = vehicles.filter(v=>v.active)[0].id;
+    }
     function runSim(){
-      const days=Number($('simDays').value||0), price=Number($('simPrice').value||0), kmday=Number($('simKmDay').value||0), season=Number($('simSeason').value||100)/100;
-      const veh= teslaToggle.checked ? $('simVehicule').value : 'Clio';
-      const com=(settings.commission||0)/100;
-      const after=(price*days)*(1-com);
-      const wear=(kmday*days)*(settings.wearPerKm||0);
-      const fixVeh = (veh==='Tesla' ? (settings.tesla.ass+settings.tesla.conn+settings.tesla.ent+settings.tesla.amort)
-                                     : (settings.clio.ass+settings.clio.conn+settings.clio.ent+settings.clio.amort));
-      const fixAcq = (veh==='Clio') ? (settings.clio.acqTotal/Math.max(1,settings.clio.acqMonths||1)) : 0;
-      const fix = fixVeh + fixAcq;
-      const net=(after - wear - fix)*season;
+      const vehId = $('simVehicule').value;
+      const veh = vehicleById(vehId);
+      if(!veh){ alert('Ajoute au moins un véhicule actif dans l’onglet Véhicules.'); return; }
 
-      document.getElementById('simOut').innerHTML = `
-        <div class="grid-4">
-          <div class="card"><div class="text-sm" style="color:var(--muted)">Net avant fixes</div><div class="text-xl font-extrabold">${euro(after-wear)}</div></div>
-          <div class="card"><div class="text-sm" style="color:var(--muted)">Fixes (${veh})</div><div class="text-xl font-extrabold">-${euro(fix)}</div><div class="text-xs" style="color:var(--muted)">${veh==='Clio' ? '(incl. amort. acquisition)' : ''}</div></div>
-          <div class="card"><div class="text-sm" style="color:var(--muted)">Résultat net (après saison)</div><div class="text-xl font-extrabold">${euro(net)}</div></div>
-          <div class="card"><div class="text-sm" style="color:var(--muted)">Point mort (jours)</div><div class="text-xl font-extrabold">${pointMort(price, kmday, fix)}</div></div>
-        </div>`;
+      const days = Number($('simDays').value||0);
+      const price = Number($('simPrice').value||0);
+      const kmday = Number($('simKmDay').value||0);
+      const commission = Number($('simCommission').value||globals.commission);
+      const wearPerKm = Number($('simWear').value||globals.wearPerKm);
+      const seasonBase = Number($('simSeasonBase').value||100)/100;
 
-      const months=['01','02','03','04','05','06','07','08','09','10','11','12'], seasonCurve=[0.85,0.8,0.9,1.0,1.05,1.15,1.25,1.2,1.0,0.95,0.85,0.9];
-      const base=(after - wear - fix); const data=months.map((_,i)=> base*seasonCurve[i]);
+      const com = commission/100;
+      const fixed = fixedCostsMonthly(veh);
+      const seasonCurve=[0.85,0.80,0.90,1.00,1.05,1.15,1.25,1.20,1.00,0.95,0.85,0.90];
 
+      // Résumé “tarif”
+      const shownPrice = price/(1-com); // estimation prix affiché locataire
+      const monthlyGross = price*days;
+      const after = monthlyGross*(1-com);
+      const wear  = (kmday*days)*wearPerKm;
+      const netBase = after - wear - fixed;
+
+      // Summary cards
+      $('simSummary').innerHTML = `
+        <div class="card">
+          <div class="text-sm" style="color:var(--muted)">Prix proprio / Prix affiché estimé</div>
+          <div class="text-xl font-extrabold">${euro(price)} / ${euro(shownPrice)}</div>
+          <div class="text-xs" style="color:var(--muted)">Affiché ≈ prix / (1 – commission)</div>
+        </div>
+        <div class="card">
+          <div class="text-sm" style="color:var(--muted)">Après commission – Usure</div>
+          <div class="text-xl font-extrabold">${euro(after)} – ${euro(wear)}</div>
+          <div class="text-xs" style="color:var(--muted)">Commission ${commission}% · Usure ${wearPerKm.toFixed(2)} €/km</div>
+        </div>
+        <div class="card">
+          <div class="text-sm" style="color:var(--muted)">Fixes mensuels (${veh.name})</div>
+          <div class="text-xl font-extrabold">-${euro(fixed)}</div>
+          <div class="text-xs" style="color:var(--muted)">Ass+Conn+Ent+Amort+Amort. acquisition</div>
+        </div>
+      `;
+
+      // Table 12 mois
+      const tbody=$('simTable'); tbody.innerHTML='';
+      const labels = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+      const data = [];
+      labels.forEach((m,i)=>{
+        const factor = seasonCurve[i]*seasonBase;
+        const g = monthlyGross*factor;
+        const a = g*(1-com);
+        const w = (kmday*days)*wearPerKm*factor; // km proportionnels aux jours
+        const n = a - w - fixed;
+        data.push(n);
+        const tr=document.createElement('tr');
+        tr.innerHTML = `<td>${m}</td><td>${euro(g)}</td><td>${euro(a)}</td><td>${euro(w)}</td><td>${euro(fixed)}</td><td><b>${euro(n)}</b></td>`;
+        tbody.appendChild(tr);
+      });
+
+      // Chart
       if(simChart){ simChart.destroy(); }
       simChart = new Chart(document.getElementById('simChart').getContext('2d'), {
         type:'bar',
-        data:{ labels:months, datasets:[{ label:'Prévision nette mensuelle (€)', data,
-          backgroundColor:data.map(v=> v>=0?'rgba(124,58,237,.9)':'rgba(239,68,68,.9)') }]},
+        data:{ labels, datasets:[{ label:`Net mensuel estimé – ${veh.name}`, data,
+          backgroundColor: data.map(v=> v>=0?'rgba(79,70,229,.9)':'rgba(239,68,68,.9)') }]},
         options:{ plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(2)} €`}}}, scales:{ y:{ beginAtZero:true } } }
       });
-    }
-    function pointMort(price, kmday, fix){
-      const com=(settings.commission||0)/100; const netPerDay=price*(1-com) - (kmday*(settings.wearPerKm||0));
-      if(netPerDay<=0) return '∞'; return (fix/netPerDay).toFixed(1);
+
+      // What-if (+/- 2 jours & +/- 5€)
+      const wi = [
+        {lbl:'+2j', d:days+2, p:price}, {lbl:'-2j', d:Math.max(0,days-2), p:price},
+        {lbl:'+5€', d:days, p:price+5}, {lbl:'-5€', d:days, p:Math.max(0,price-5)},
+        {lbl:'+2j & +5€', d:days+2, p:price+5}
+      ];
+      const wrap=$('simWhatIf'); wrap.innerHTML='';
+      wi.forEach(s=>{
+        const gross = s.p*s.d, aft=gross*(1-com), wear2=(kmday*s.d)*wearPerKm, net=aft-wear2-fixed;
+        const card=document.createElement('div'); card.className='card';
+        card.innerHTML = `<div class="text-sm" style="color:var(--muted)">${s.lbl}</div>
+          <div class="text-lg font-extrabold">${euro(net)}</div>
+          <div class="text-xs" style="color:var(--muted)">CA ${euro(gross)} · Après com ${euro(aft)} · Usure ${euro(wear2)}</div>`;
+        wrap.appendChild(card);
+      });
     }
 
-    // ===== Suivi & Graphs (incluant amort. acquisition Clio) =====
+    // ========= Suivi & Charts =========
     let chartNet, chartCumul;
     function renderCharts(){
-      const vehF=$('suiviVehicule').value, mSel=$('suiviMonth').value;
-      const filtered = locations.filter(l => (vehF==='ALL' || l.vehicule===vehF) && (!mSel || monthKey(l.date)===mSel));
+      // Build vehicule filter
+      const sel=$('suiviVehicule'); sel.innerHTML='';
+      const optAll=document.createElement('option'); optAll.value='ALL'; optAll.textContent='Tous véhicules'; sel.appendChild(optAll);
+      vehicles.filter(v=> v.active).forEach(v=>{ const o=document.createElement('option'); o.value=v.id; o.textContent=v.name; sel.appendChild(o); });
+      if(!sel.value) sel.value='ALL';
 
-      const monthsMap={}; for(const l of filtered){ const mk=monthKey(l.date); (monthsMap[mk]=monthsMap[mk]||[]).push(l); }
+      const vehF=sel.value; const mSel=$('suiviMonth').value;
+      const filtered = locations.filter(l => (vehF==='ALL' || l.vehiculeId===vehF) && (!mSel || monthKey(l.date)===mSel));
+
+      // Group by month
+      const monthsMap={};
+      for(const l of filtered){
+        const mk=monthKey(l.date);
+        (monthsMap[mk]=monthsMap[mk]||[]).push(l);
+      }
       const months=Object.keys(monthsMap).sort();
       const monthlyBefore=months.map(m=> monthsMap[m].reduce((s,l)=> s+netLocation(l),0));
 
-      const monthlyFix=months.map(m=>{
-        const useVeh = (vehF==='ALL' ? ['Clio','Tesla'].filter(v=> teslaOn ? true : v==='Clio') : [vehF]);
-        return useVeh.reduce((sum,v)=>{
-          const fixesVeh = (v==='Tesla'
-            ? (settings.tesla.ass+settings.tesla.conn+settings.tesla.ent+settings.tesla.amort)
-            : (settings.clio.ass+settings.clio.conn+settings.clio.ent+settings.clio.amort + (settings.clio.acqTotal/Math.max(1,settings.clio.acqMonths||1))));
-          return sum + fixesVeh;
-        },0);
+      // Fixed by selection (sum of active vehicles if ALL)
+      const monthlyFix = months.map(_=>{
+        const use = (vehF==='ALL' ? vehicles.filter(v=>v.active) : vehicles.filter(v=> v.id===vehF));
+        return use.reduce((sum,v)=> sum + fixedCostsMonthly(v), 0);
       });
-
       const monthlyAfter = monthlyBefore.map((v,i)=> v - monthlyFix[i]);
 
-      // Résumé + breakdown
+      // Resume sélectionné
       const currentM = $('suiviMonth').value || months[months.length-1];
-      const top = document.getElementById('monthTop');
-      const bd = document.getElementById('monthBreakdown');
+      const top=$('monthTop'), bd=$('monthBreakdown');
       if(currentM){
         const list = monthsMap[currentM] || [];
         const before = list.reduce((s,l)=> s + netLocation(l), 0);
-        const clioAcq = (settings.clio.acqTotal/Math.max(1,settings.clio.acqMonths||1));
-        const fixClio = settings.clio.ass+settings.clio.conn+settings.clio.ent+settings.clio.amort + clioAcq;
-        const fixTesla= settings.tesla.ass+settings.tesla.conn+settings.tesla.ent+settings.tesla.amort;
-        let fix = 0;
-        if(vehF==='ALL'){ fix = (teslaOn ? (fixClio+fixTesla) : fixClio); }
-        else { fix = (vehF==='Tesla' ? fixTesla : fixClio); }
-        const after = before - fix;
-
-        top.innerHTML = `${currentM} · Net (avant fixes): <b>${euro(before)}</b> · Fixes: <b>-${euro(fix)}</b> · Résultat net: <b style="color:${after>=0?'#16a34a':'#ef4444'}">${euro(after)}</b>`;
+        const fixSel = (vehF==='ALL' ? vehicles.filter(v=>v.active).reduce((s,v)=> s+fixedCostsMonthly(v),0)
+                                     : fixedCostsMonthly(vehicleById(vehF)));
+        const after = before - fixSel;
+        top.innerHTML = `${currentM} · Net (avant fixes): <b>${euro(before)}</b> · Fixes: <b>-${euro(fixSel)}</b> · Résultat net: <b style="color:${after>=0?'var(--pos)':'var(--neg)'}">${euro(after)}</b>`;
 
         bd.innerHTML='';
-        const addLine=(lbl,val)=>{ const d=document.createElement('div'); d.className='card'; d.innerHTML=`<div class="text-xs" style="color:var(--muted)">${lbl}</div><div class="text-lg font-extrabold">${euro(val)}</div>`; bd.appendChild(d); };
-
-        const showClio = (vehF!=='Tesla');
-        const showTesla = teslaOn && (vehF!=='Clio');
-
-        if(showClio){
-          addLine('Clio · Assurance', settings.clio.ass);
-          addLine('Clio · Connect', settings.clio.conn);
-          addLine('Clio · Entretien', settings.clio.ent);
-          addLine('Clio · Amort. véhicule', settings.clio.amort);
-          addLine('Clio · Amort. acquisition', clioAcq);
-        }
-        if(showTesla){
-          addLine('Tesla · Assurance', settings.tesla.ass);
-          addLine('Tesla · Connect', settings.tesla.conn);
-          addLine('Tesla · Entretien', settings.tesla.ent);
-          addLine('Tesla · Amort. véhicule', settings.tesla.amort);
-        }
+        const listVeh = (vehF==='ALL' ? vehicles.filter(v=>v.active) : vehicles.filter(v=> v.id===vehF));
+        listVeh.forEach(v=>{
+          const b = fixedCostsBreakdown(v);
+          const card=document.createElement('div'); card.className='card';
+          card.innerHTML = `<div class="text-sm" style="color:var(--muted)">${v.name} – Détail fixes</div>
+            <div class="grid-3 mt-2">
+              <div><div class="text-xs" style="color:var(--muted)">Assurance</div><div class="text-lg font-bold">${euro(b.ass)}</div></div>
+              <div><div class="text-xs" style="color:var(--muted)">Connect</div><div class="text-lg font-bold">${euro(b.conn)}</div></div>
+              <div><div class="text-xs" style="color:var(--muted)">Entretien</div><div class="text-lg font-bold">${euro(b.ent)}</div></div>
+              <div><div class="text-xs" style="color:var(--muted)">Amort. véhicule</div><div class="text-lg font-bold">${euro(b.amort)}</div></div>
+              <div><div class="text-xs" style="color:var(--muted)">Amort. acquisition</div><div class="text-lg font-bold">${euro(b.acq)}</div></div>
+            </div>`;
+          bd.appendChild(card);
+        });
       } else {
-        top.textContent = 'Aucune donnée pour le moment.'; bd.innerHTML='';
+        top.textContent='Aucune donnée pour le moment.'; bd.innerHTML='';
       }
 
+      // Charts
       if(chartNet){ chartNet.destroy(); } if(chartCumul){ chartCumul.destroy(); }
       chartNet = new Chart(document.getElementById('chartNet').getContext('2d'), {
         type:'bar',
         data:{ labels:months, datasets:[{ label:'Net après frais fixes (€)', data:monthlyAfter,
-          backgroundColor: monthlyAfter.map(v=> v>=0 ? 'rgba(124,58,237,.9)' : 'rgba(239,68,68,.9)') }]},
+          backgroundColor: monthlyAfter.map(v=> v>=0 ? 'rgba(79,70,229,.9)' : 'rgba(239,68,68,.9)') }]},
         options:{ plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(2)} €`}}}, scales:{ y:{ beginAtZero:true } } }
       });
       const cum=[]; let acc=0; for(const v of monthlyAfter){ acc+=v; cum.push(acc); }
       chartCumul = new Chart(document.getElementById('chartCumul').getContext('2d'), {
         type:'line',
-        data:{ labels:months, datasets:[{ label:'Cumul annuel (€)', data:cum, fill:false, borderColor:'rgba(124,58,237,.95)', tension:.25, pointRadius:3 }]},
+        data:{ labels:months, datasets:[{ label:'Cumul annuel (€)', data:cum, fill:false, borderColor:'rgba(79,70,229,.95)', tension:.25, pointRadius:3 }]},
         options:{ plugins:{ legend:{display:false} } }
       });
     }
-    document.getElementById('suiviVehicule').addEventListener('change', renderCharts);
-    document.getElementById('suiviMonth').addEventListener('change', renderCharts);
+    $('suiviVehicule')?.addEventListener('change', renderCharts);
+    $('suiviMonth')?.addEventListener('change', renderCharts);
 
-    // ===== Export / Import =====
-    document.getElementById('exportJson').addEventListener('click', ()=>{
-      const blob = new Blob([JSON.stringify({theme: themeToggle.checked?'light':'dark', teslaOn, settings, locations}, null, 2)], {type:'application/json'});
+    // ========= Export/Import =========
+    $('exportJson').addEventListener('click', ()=>{
+      const blob = new Blob([JSON.stringify({theme: themeToggle.checked?'light':'dark', vehicles, globals, locations}, null, 2)], {type:'application/json'});
       const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`roi-data-${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),0);
     });
-    document.getElementById('importJson').addEventListener('change', e=>{
+    $('importJson').addEventListener('change', e=>{
       const f=e.target.files?.[0]; if(!f) return;
       const r=new FileReader(); r.onload=()=>{ try{
         const d=JSON.parse(r.result);
         if(d.theme){ themeToggle.checked=(d.theme==='light'); applyTheme(); }
-        if(typeof d.teslaOn==='boolean'){ teslaOn=d.teslaOn; teslaToggle.checked=teslaOn; }
-        if(d.settings) settings=d.settings;
+        if(Array.isArray(d.vehicles)) vehicles=d.vehicles;
+        if(d.globals) globals=d.globals;
         if(Array.isArray(d.locations)) locations=d.locations;
-        saveAll(); loadParamsIntoUI(); applyTeslaUI(); renderTable(); renderCharts(); alert('Import réussi ✅');
+        saveAll(); renderVehiclesUI(); fillVehSelect(); fillFilters(); renderTable(); renderCharts(); fillSimDefaults(); alert('Import réussi ✅');
       }catch(_){ alert('Fichier invalide ❌'); } }; r.readAsText(f);
     });
-    document.getElementById('exportCsv').addEventListener('click', ()=>{
+    $('exportCsv').addEventListener('click', ()=>{
       const rows=[['id','date','jours','prixJour','kms','extras','fuelAdj','vehicule','net','notes']];
-      locations.forEach(l=> rows.push([l.id,l.date,l.jours,l.prixJour,l.kms,l.extras,l.fuelAdj||0,l.vehicule||'Clio',netLocation(l).toFixed(2),(l.notes||'').replace(/"/g,'""')]));
+      locations.forEach(l=> rows.push([l.id,l.date,l.jours,l.prixJour,l.kms,l.extras,l.fuelAdj||0,(vehicleById(l.vehiculeId)?.name||''),netLocation(l).toFixed(2),(l.notes||'').replace(/"/g,'""')]));
       const csv=rows.map(r=> r.map(x=>`"${String(x)}"`).join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
       const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='locations.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),0);
     });
 
-    // Init
-    function loadParamsIntoUI(){
-      document.getElementById('commission').value=settings.commission;
-      document.getElementById('wearPerKm').value=settings.wearPerKm;
-      document.getElementById('kmInclus').value=settings.kmInclus;
-      document.getElementById('clioAss').value=settings.clio.ass;
-      document.getElementById('clioConn').value=settings.clio.conn;
-      document.getElementById('clioEnt').value=settings.clio.ent;
-      document.getElementById('clioAmort').value=settings.clio.amort;
-      document.getElementById('clioAcqTotal').value=settings.clio.acqTotal||0;
-      document.getElementById('clioAcqMonths').value=settings.clio.acqMonths||60;
-      document.getElementById('clioAcqAmort').value=(settings.clio.acqTotal? (Number(settings.clio.acqTotal)/Math.max(1,Number(settings.clio.acqMonths||0))).toFixed(2):0);
-      document.getElementById('teslaAss').value=settings.tesla.ass;
-      document.getElementById('teslaConn').value=settings.tesla.conn;
-      document.getElementById('teslaEnt').value=settings.tesla.ent;
-      document.getElementById('teslaAmort').value=settings.tesla.amort;
+    // ========= Init =========
+    function init(){
+      // Ensure at least Clio & Tesla exist once
+      if(!vehicles.find(v=>v.id==='clio')) vehicles.push({ id:'clio', name:'Clio', active:true, costs:{ass:54,conn:25,ent:45,amort:181,acqTotal:0,acqMonths:60} });
+      if(!vehicles.find(v=>v.id==='tesla')) vehicles.push({ id:'tesla', name:'Tesla', active:true, costs:{ass:115,conn:0,ent:30,amort:0,acqTotal:0,acqMonths:60} });
+
+      renderVehiclesUI();
+      fillVehSelect();
+      fillFilters();
+      loadGlobals();
+      renderTable();
+      renderCharts();
+      fillSimDefaults();
     }
-    loadParamsIntoUI();
-    renderCharts();
+    init();
   </script>
 </body>
 </html>
