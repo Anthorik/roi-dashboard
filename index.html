@@ -8,44 +8,58 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
-      --bg:#111827; --card:#1f2937; --text:#e5e7eb; --muted:#9ca3af; --primary:#2563eb; --primary-d:#1e40af;
+      /* Palette sombre neutre, moins bleue */
+      --bg1:#0e1116; --bg2:#171a20; --card:#1f232b; --text:#e8eaed; --muted:#9aa0a6;
+      --primary:#3b82f6; --primary-d:#1f6feb;
+      --pos:#10b981; --neg:#ef4444; --border:rgba(255,255,255,.08);
     }
-    .light { --bg:#f3f4f6; --card:#ffffff; --text:#111827; --muted:#6b7280; --primary:#2563eb; --primary-d:#1e40af; }
-    body { background-color:var(--bg); color:var(--text); }
-    .card { background-color:var(--card); border-radius:.75rem; padding:1.25rem; box-shadow:0 6px 24px rgba(0,0,0,.15); }
-    .btn { background-color:var(--primary); color:#fff; padding:.5rem 1rem; border-radius:.5rem; }
+    .light {
+      --bg1:#f6f7f9; --bg2:#eef1f5; --card:#ffffff; --text:#0f172a; --muted:#64748b;
+      --primary:#2563eb; --primary-d:#1e40af;
+      --pos:#10b981; --neg:#ef4444; --border:rgba(15,23,42,.12);
+    }
+    body {
+      min-height:100vh;
+      background: radial-gradient(1000px 600px at 20% -10%, rgba(120,119,198,.10), transparent 60%),
+                  radial-gradient(800px 500px at 100% 10%, rgba(56,189,248,.12), transparent 60%),
+                  linear-gradient(180deg, var(--bg1), var(--bg2));
+      color: var(--text);
+    }
+    .card { background-color: var(--card); border-radius:.9rem; padding:1.25rem; box-shadow:0 12px 30px rgba(0,0,0,.18); border:1px solid var(--border); }
+    .btn { background-color:var(--primary); color:#fff; padding:.55rem 1rem; border-radius:.6rem; font-weight:600; }
     .btn:hover{ background-color:var(--primary-d); }
-    .btn-ghost{ background:rgba(255,255,255,.08); color:var(--text); padding:.5rem .8rem; border-radius:.5rem; }
-    input,select{ background:transparent; color:var(--text); border:1px solid rgba(255,255,255,.2); border-radius:.375rem; padding:.5rem; width:100%; }
+    .btn-ghost{ background:transparent; color:var(--text); padding:.5rem .8rem; border-radius:.6rem; border:1px solid var(--border); }
+    input,select{ background:transparent; color:var(--text); border:1px solid var(--border); border-radius:.5rem; padding:.5rem; width:100%; }
     label{ color:var(--muted); font-size:.9rem; }
+    table{ width:100%; border-collapse:collapse; }
+    th,td{ border-bottom:1px solid var(--border); padding:.55rem .6rem; }
+    th{ color:var(--muted); text-align:left; }
+    .pill{ font-size:.75rem; font-weight:700; padding:.2rem .55rem; border-radius:999px; }
     .toggle{ display:flex; align-items:center; gap:.5rem; cursor:pointer; }
-    .toggle input{ width:2.5rem; height:1.3rem; appearance:none; background:rgba(255,255,255,.2); border-radius:999px; position:relative; outline:none; }
+    .toggle input{ width:2.5rem; height:1.3rem; appearance:none; background:var(--border); border-radius:999px; position:relative; outline:none; }
     .toggle input:checked{ background:var(--primary); }
     .toggle input:before{ content:""; position:absolute; top:2px; left:2px; width:1rem; height:1rem; background:#fff; border-radius:999px; transition:all .2s; }
     .toggle input:checked:before{ transform:translateX(1.2rem); }
-    table{ width:100%; border-collapse:collapse; }
-    th,td{ border-bottom:1px solid rgba(255,255,255,.08); padding:.5rem .6rem; }
-    th{ color:var(--muted); text-align:left; }
-    .pill{ font-size:.75rem; font-weight:700; padding:.2rem .5rem; border-radius:999px; }
+    .breakdown { display:grid; grid-template-columns: repeat(1, minmax(0,1fr)); gap:.4rem; }
+    @media(min-width:768px){ .grid-2{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; } .grid-3{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; } .grid-4{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; } }
   </style>
 </head>
 <body>
-  <header class="mb-6">
+  <header class="mb-6 max-w-7xl mx-auto px-4">
     <div class="flex items-center justify-between gap-4">
       <h1 class="text-2xl font-bold">📊 Dashboard ROI – Flotte Auto</h1>
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2">
         <label class="toggle" title="Basculer thème clair/sombre">
-          <span>Thème clair</span><input type="checkbox" id="themeToggle"/>
+          <span style="color:var(--muted)">Thème clair</span><input type="checkbox" id="themeToggle"/>
         </label>
         <label class="toggle" title="Activer/Désactiver Tesla">
-          <span>Tesla</span><input type="checkbox" id="teslaToggle"/>
+          <span style="color:var(--muted)">Tesla</span><input type="checkbox" id="teslaToggle"/>
         </label>
         <button id="exportJson" class="btn-ghost">Export JSON</button>
-        <label class="btn-ghost cursor-pointer">Import JSON <input id="importJson" type="file" accept="application/json" class="hidden"/></label>
+        <label class="btn-ghost cursor-pointer">Import JSON<input id="importJson" type="file" accept="application/json" class="hidden"/></label>
         <button id="exportCsv" class="btn-ghost">Export CSV</button>
       </div>
     </div>
-
     <div class="mt-4 flex flex-wrap gap-2">
       <button class="btn" onclick="showTab('locations')">Locations réelles</button>
       <button class="btn" onclick="showTab('params')">Paramètres</button>
@@ -54,129 +68,140 @@
     </div>
   </header>
 
-  <!-- LOCATIONS -->
-  <section id="locations" class="card hidden">
-    <h2 class="text-xl font-semibold mb-3">📅 Locations réelles</h2>
-    <div class="grid md:grid-cols-4 gap-3">
-      <div><label>Début</label><input type="date" id="date"/></div>
-      <div><label>Jours</label><input type="number" id="jours" min="1" value="1"/></div>
-      <div><label>Prix proprio €/jour</label><input type="number" id="prixJour" min="0" step="0.1" value="30"/></div>
-      <div id="vehiculeWrap" class="hidden">
-        <label>Véhicule</label>
-        <select id="vehicule"><option value="Clio">Clio</option><option value="Tesla">Tesla</option></select>
+  <main class="max-w-7xl mx-auto px-4 space-y-6">
+    <!-- LOCATIONS -->
+    <section id="locations" class="card hidden">
+      <h2 class="text-xl font-semibold mb-3">📅 Locations réelles</h2>
+      <div class="grid-4">
+        <div><label>Début</label><input type="date" id="date"/></div>
+        <div><label>Jours</label><input type="number" id="jours" min="1" value="1"/></div>
+        <div><label>Prix proprio €/jour</label><input type="number" id="prixJour" min="0" step="0.1" value="30"/></div>
+        <div id="vehiculeWrap" class="hidden">
+          <label>Véhicule</label>
+          <select id="vehicule"><option value="Clio">Clio</option><option value="Tesla">Tesla</option></select>
+        </div>
+        <div><label>Km totaux (optionnel)</label><input type="number" id="kms" min="0" step="1" placeholder="ex. 250"/></div>
+        <div><label>Frais divers (€)</label><input type="number" id="extras" min="0" step="0.1" value="0"/></div>
+        <div><label>Ajustement carburant (+/− €)</label><input type="number" id="fuelAdj" step="0.1" value="0"/></div>
+        <div class="md:col-span-2"><label>Notes</label><input type="text" id="notes" placeholder="Ex. week-end, pro, remise…"/></div>
       </div>
-      <div><label>Km totaux (optionnel)</label><input type="number" id="kms" min="0" step="1" placeholder="ex. 250"/></div>
-      <div><label>Frais divers (€)</label><input type="number" id="extras" min="0" step="0.1" value="0"/></div>
-      <div><label>Ajustement carburant (+/− €)</label><input type="number" id="fuelAdj" step="0.1" value="0"/></div>
-      <div class="md:col-span-2"><label>Notes</label><input type="text" id="notes" placeholder="Ex. week-end, pro, remise…"/></div>
-    </div>
 
-    <div class="mt-3 flex flex-wrap gap-2">
-      <button id="saveBtn" class="btn" onclick="saveLocation()">Enregistrer</button>
-      <button id="cancelEditBtn" class="btn-ghost hidden" onclick="cancelEdit()">Annuler</button>
-      <select id="filterVehicule" class="w-auto"><option value="ALL">Tous véhicules</option><option value="Clio">Clio</option><option value="Tesla">Tesla</option></select>
-      <input type="month" id="filterMonth" class="w-auto"/><button class="btn-ghost" onclick="clearFilters()">Effacer filtres</button>
-    </div>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button id="saveBtn" class="btn" onclick="saveLocation()">Enregistrer</button>
+        <button id="cancelEditBtn" class="btn-ghost hidden" onclick="cancelEdit()">Annuler</button>
+        <select id="filterVehicule" class="w-auto"><option value="ALL">Tous véhicules</option><option value="Clio">Clio</option><option value="Tesla">Tesla</option></select>
+        <input type="month" id="filterMonth" class="w-auto"/><button class="btn-ghost" onclick="clearFilters()">Effacer filtres</button>
+      </div>
 
-    <div class="mt-4 overflow-x-auto">
-      <table>
-        <thead><tr><th>Date</th><th>Jours</th><th>€/j</th><th>Km</th><th>Frais</th><th>Carburant ±</th><th>Véhicule</th><th>Net loc</th><th>Notes</th><th>Actions</th></tr></thead>
-        <tbody id="locTable"></tbody>
-      </table>
-    </div>
-    <p class="text-sm mt-2" style="color:var(--muted)">Net location = (prix × jours × (1–commission)) − usure(km×€/km) − frais divers + ajustement carburant.</p>
-  </section>
+      <div class="mt-4 overflow-x-auto">
+        <table>
+          <thead><tr><th>Date</th><th>Jours</th><th>€/j</th><th>Km</th><th>Frais</th><th>Carburant ±</th><th>Véhicule</th><th>Net loc</th><th>Notes</th><th>Actions</th></tr></thead>
+          <tbody id="locTable"></tbody>
+        </table>
+      </div>
+      <p class="text-sm mt-2" style="color:var(--muted)">Net location = (prix × jours × (1–commission)) − usure(km×€/km) − frais divers + ajustement carburant.</p>
+    </section>
 
-  <!-- PARAMS -->
-  <section id="params" class="card hidden">
-    <h2 class="text-xl font-semibold mb-3">⚙️ Paramètres</h2>
-    <div class="grid md:grid-cols-3 gap-4">
-      <div><label>Commission plateforme (%)</label><input type="number" id="commission" min="0" step="0.1" value="10"/></div>
-      <div><label>Usure €/km</label><input type="number" id="wearPerKm" min="0" step="0.01" value="0.12"/></div>
-      <div><label>Km inclus / jour</label><input type="number" id="kmInclus" min="0" step="1" value="100"/></div>
-    </div>
+    <!-- PARAMETRES -->
+    <section id="params" class="card hidden">
+      <h2 class="text-xl font-semibold mb-3">⚙️ Paramètres</h2>
+      <div class="grid-3">
+        <div><label>Commission plateforme (%)</label><input type="number" id="commission" min="0" step="0.1" value="10"/></div>
+        <div><label>Usure €/km</label><input type="number" id="wearPerKm" min="0" step="0.01" value="0.12"/></div>
+        <div><label>Km inclus / jour</label><input type="number" id="kmInclus" min="0" step="1" value="100"/></div>
+      </div>
 
-    <div class="mt-4 grid md:grid-cols-2 gap-4">
-      <div class="card" style="background:transparent; border:1px solid rgba(255,255,255,.12);">
-        <h3 class="font-semibold mb-2">Clio – frais fixes / mois</h3>
-        <div class="grid md:grid-cols-4 gap-3">
-          <div><label>Assurance</label><input type="number" id="clioAss" value="54"/></div>
-          <div><label>Connect</label><input type="number" id="clioConn" value="25"/></div>
-          <div><label>Entretien</label><input type="number" id="clioEnt" value="45"/></div>
-          <div><label>Amortissement</label><input type="number" id="clioAmort" value="181"/></div>
+      <div class="mt-4 grid-2">
+        <div class="card" style="background:transparent;">
+          <h3 class="font-semibold mb-2">Clio – frais fixes / mois</h3>
+          <div class="grid-4">
+            <div><label>Assurance</label><input type="number" id="clioAss" value="54"/></div>
+            <div><label>Connect</label><input type="number" id="clioConn" value="25"/></div>
+            <div><label>Entretien</label><input type="number" id="clioEnt" value="45"/></div>
+            <div><label>Amort. véhicule</label><input type="number" id="clioAmort" value="181"/></div>
+          </div>
+          <div class="mt-3 grid-3">
+            <div><label>Frais acquisition (total €)</label><input type="number" id="clioAcqTotal" value="0"/></div>
+            <div><label>Durée amort. acquisition (mois)</label><input type="number" id="clioAcqMonths" value="60"/></div>
+            <div><label>Amort. acquisition (auto)</label><input type="number" id="clioAcqAmort" value="0" disabled/></div>
+          </div>
+        </div>
+
+        <div class="card" id="teslaParamsCard" style="background:transparent; display:none;">
+          <h3 class="font-semibold mb-2">Tesla – frais fixes / mois</h3>
+          <div class="grid-4">
+            <div><label>Assurance</label><input type="number" id="teslaAss" value="115"/></div>
+            <div><label>Connect</label><input type="number" id="teslaConn" value="0"/></div>
+            <div><label>Entretien</label><input type="number" id="teslaEnt" value="30"/></div>
+            <div><label>Amort. véhicule</label><input type="number" id="teslaAmort" value="0"/></div>
+          </div>
         </div>
       </div>
-      <div class="card" id="teslaParamsCard" style="background:transparent; border:1px solid rgba(255,255,255,.12); display:none;">
-        <h3 class="font-semibold mb-2">Tesla – frais fixes / mois</h3>
-        <div class="grid md:grid-cols-4 gap-3">
-          <div><label>Assurance</label><input type="number" id="teslaAss" value="115"/></div>
-          <div><label>Connect</label><input type="number" id="teslaConn" value="0"/></div>
-          <div><label>Entretien</label><input type="number" id="teslaEnt" value="30"/></div>
-          <div><label>Amortissement</label><input type="number" id="teslaAmort" value="0"/></div>
-        </div>
+
+      <div class="mt-4">
+        <button class="btn" onclick="saveParams()">💾 Sauvegarder</button>
+        <span id="savedTag" class="ml-3 text-sm" style="color:var(--muted); display:none;">✔️ Sauvegardé</span>
       </div>
-    </div>
+    </section>
 
-    <div class="mt-4"><button class="btn" onclick="saveParams()">💾 Sauvegarder</button><span id="savedTag" class="ml-3 text-sm" style="color:var(--muted); display:none;">✔️ Sauvegardé</span></div>
-  </section>
+    <!-- PREVISIONS -->
+    <section id="previsions" class="card hidden">
+      <h2 class="text-xl font-semibold mb-3">📈 Prévisions & Tarifs</h2>
+      <div class="grid-4">
+        <div><label>Jours loués / mois</label><input type="number" id="simDays" value="12"/></div>
+        <div><label>Prix proprio €/j</label><input type="number" id="simPrice" value="30" step="0.1"/></div>
+        <div><label>Km/j (moy.)</label><input type="number" id="simKmDay" value="100"/></div>
+        <div><label>Saisonnalité (%)</label><input type="number" id="simSeason" value="100"/></div>
+      </div>
+      <div class="mt-3 flex gap-2">
+        <select id="simVehicule" class="w-auto"><option value="Clio">Clio</option><option value="Tesla">Tesla</option></select>
+        <button class="btn" onclick="runSim()">Calculer</button>
+      </div>
+      <div id="simOut" class="mt-4"></div>
 
-  <!-- PREVISIONS -->
-  <section id="previsions" class="card hidden">
-    <h2 class="text-xl font-semibold mb-3">📈 Prévisions & Tarifs</h2>
-    <div class="grid md:grid-cols-4 gap-3">
-      <div><label>Jours loués / mois</label><input type="number" id="simDays" value="12"/></div>
-      <div><label>Prix proprio €/j</label><input type="number" id="simPrice" value="30" step="0.1"/></div>
-      <div><label>Km/j (moy.)</label><input type="number" id="simKmDay" value="100"/></div>
-      <div><label>Saisonnalité (%)</label><input type="number" id="simSeason" value="100"/></div>
-    </div>
-    <div class="mt-3 flex gap-2">
-      <select id="simVehicule" class="w-auto"><option value="Clio">Clio</option><option value="Tesla">Tesla</option></select>
-      <button class="btn" onclick="runSim()">Calculer</button>
-    </div>
-    <div id="simOut" class="mt-4"></div>
+      <div class="mt-6">
+        <h3 class="font-semibold mb-2">Prévisions 12 mois (saisonnalité simple)</h3>
+        <canvas id="simChart" height="140"></canvas>
+      </div>
+    </section>
 
-    <div class="mt-6">
-      <h3 class="font-semibold mb-2">Prévisions 12 mois (saisonnalité simple)</h3>
-      <canvas id="simChart" height="140"></canvas>
-    </div>
-  </section>
-
-  <!-- SUIVI -->
-  <section id="suivi" class="card hidden">
-    <h2 class="text-xl font-semibold mb-3">📊 Suivi mensuel</h2>
-    <div class="flex flex-wrap items-center gap-2 mb-3">
-      <select id="suiviVehicule" class="w-auto"><option value="ALL">Tous véhicules</option><option value="Clio">Clio</option><option value="Tesla">Tesla</option></select>
-      <input type="month" id="suiviMonth" class="w-auto" />
-    </div>
-    <div class="grid md:grid-cols-2 gap-4">
-      <div><canvas id="chartNet" height="150"></canvas></div>
-      <div><canvas id="chartCumul" height="150"></canvas></div>
-    </div>
-    <p id="monthSummary" class="mt-3 text-sm" style="color:var(--muted)"></p>
-  </section>
+    <!-- SUIVI -->
+    <section id="suivi" class="card hidden">
+      <h2 class="text-xl font-semibold mb-3">📊 Suivi mensuel</h2>
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <select id="suiviVehicule" class="w-auto"><option value="ALL">Tous véhicules</option><option value="Clio">Clio</option><option value="Tesla">Tesla</option></select>
+        <input type="month" id="suiviMonth" class="w-auto" />
+      </div>
+      <div class="grid-2">
+        <div><canvas id="chartNet" height="150"></canvas></div>
+        <div><canvas id="chartCumul" height="150"></canvas></div>
+      </div>
+      <div id="monthTop" class="mt-3 text-sm"></div>
+      <div id="monthBreakdown" class="mt-2 breakdown"></div>
+    </section>
+  </main>
 
   <script>
-    // ===== Storage & State =====
-    const KEY='roi_dark_v4';
+    // ===== State & Storage =====
+    const KEY='roi_dark_v5';
     const data = JSON.parse(localStorage.getItem(KEY) || '{}');
     const theme = data.theme || 'dark';
-    let teslaOn   = data.teslaOn ?? false;
-    let settings  = data.settings || {
+    let teslaOn = data.teslaOn ?? false;
+    let settings = data.settings || {
       commission:10, wearPerKm:0.12, kmInclus:100,
-      clio:{ass:54, conn:25, ent:45, amort:181},
+      clio:{ass:54, conn:25, ent:45, amort:181, acqTotal:0, acqMonths:60},
       tesla:{ass:115, conn:0, ent:30, amort:0}
     };
-    // locations: {id,date,jours,prixJour,kms,extras,fuelAdj,notes,vehicule}
-    let locations = data.locations || [];
+    let locations = data.locations || []; // {id,date,jours,prixJour,kms,extras,fuelAdj,notes,vehicule}
     let editId = null;
 
-    // ===== Theme toggle =====
+    // ===== Theme =====
     const themeToggle = document.getElementById('themeToggle');
     function applyTheme(){ themeToggle.checked ? document.documentElement.classList.add('light') : document.documentElement.classList.remove('light'); }
-    themeToggle.checked = (theme === 'light'); applyTheme();
-    themeToggle.addEventListener('change', ()=>{ data.theme = themeToggle.checked ? 'light' : 'dark'; saveAll(); applyTheme(); });
+    themeToggle.checked = (theme==='light'); applyTheme();
+    themeToggle.addEventListener('change', ()=>{ data.theme = themeToggle.checked?'light':'dark'; saveAll(); applyTheme(); });
 
-    // ===== Tesla toggle =====
+    // ===== Tesla toggle & UI =====
     const teslaToggle = document.getElementById('teslaToggle'); teslaToggle.checked = !!teslaOn;
     function applyTeslaUI(){
       document.getElementById('vehiculeWrap').style.display = teslaToggle.checked ? 'block' : 'none';
@@ -187,7 +212,7 @@
       });
     }
     applyTeslaUI();
-    teslaToggle.addEventListener('change', ()=>{ teslaOn = teslaToggle.checked; data.teslaOn = teslaOn; saveAll(); applyTeslaUI(); renderTable(); renderCharts(); });
+    teslaToggle.addEventListener('change', ()=>{ teslaOn = teslaToggle.checked; data.teslaOn=teslaOn; saveAll(); applyTeslaUI(); renderTable(); renderCharts(); });
 
     // ===== Tabs =====
     function showTab(id){ document.querySelectorAll('section.card').forEach(s=> s.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); if(id==='suivi'){ renderCharts(); } }
@@ -198,7 +223,7 @@
     const euro = n => `${(n||0).toFixed(2)}€`;
     const monthKey = d => d?.slice(0,7);
     function saveAll(){ localStorage.setItem(KEY, JSON.stringify({theme: themeToggle.checked?'light':'dark', teslaOn, settings, locations})); }
-    function setEditMode(on){ $('saveBtn').textContent = on ? 'Mettre à jour' : 'Enregistrer'; $('cancelEditBtn').style.display = on ? 'inline-block' : 'none'; }
+    function setEditMode(on){ $('saveBtn').textContent = on ? 'Mettre à jour' : 'Enregistrer'; $('cancelEditBtn').classList.toggle('hidden', !on); }
 
     // ===== Locations CRUD =====
     function saveLocation(){
@@ -218,16 +243,23 @@
     function removeLoc(id){ locations = locations.filter(l=> l.id!==id); saveAll(); renderTable(); renderCharts(); }
     function editLoc(id){
       const l = locations.find(x=> x.id===id); if(!l) return;
-      editId = id; $('date').value=l.date||''; $('jours').value=l.jours??1; $('prixJour').value=l.prixJour??0; $('kms').value=l.kms??''; $('extras').value=l.extras??0; $('fuelAdj').value=l.fuelAdj??0; $('notes').value=l.notes||''; if(teslaToggle.checked && l.vehicule) $('vehicule').value=l.vehicule; setEditMode(true); window.scrollTo({top:0,behavior:'smooth'});
+      editId=id; $('date').value=l.date||''; $('jours').value=l.jours??1; $('prixJour').value=l.prixJour??0; $('kms').value=l.kms??''; $('extras').value=l.extras??0; $('fuelAdj').value=l.fuelAdj??0; $('notes').value=l.notes||''; if(teslaToggle.checked && l.vehicule) $('vehicule').value=l.vehicule; setEditMode(true); window.scrollTo({top:0,behavior:'smooth'});
     }
 
+    // ===== Calculs =====
     function netLocation(loc){
       const com=(settings.commission||0)/100;
       const after = (loc.prixJour * (loc.jours||1)) * (1-com);
       const wear  = (loc.kms||0) * (settings.wearPerKm||0);
       return after - wear - (loc.extras||0) + (loc.fuelAdj||0);
     }
+    function clioAcqAmortMonthly(){
+      const total = Number(settings.clio.acqTotal||0);
+      const months = Math.max(1, Number(settings.clio.acqMonths||0));
+      return total / months;
+    }
 
+    // ===== Table Locations =====
     function clearFilters(){ $('filterMonth').value=''; $('filterVehicule').value='ALL'; renderTable(); }
     function renderTable(){
       const tbody=$('locTable'); tbody.innerHTML='';
@@ -243,7 +275,7 @@
           <td>${(l.extras||0).toFixed(2)}</td>
           <td>${(l.fuelAdj||0).toFixed(2)}</td>
           <td>${l.vehicule||'Clio'}</td>
-          <td><span class="pill" style="background:${net>=0?'rgba(16,185,129,.2)':'rgba(239,68,68,.2)'};color:${net>=0?'#10b981':'#ef4444'}">${net.toFixed(2)}€</span></td>
+          <td><span class="pill" style="background:${net>=0?'rgba(16,185,129,.18)':'rgba(239,68,68,.18)'};color:${net>=0?'#10b981':'#ef4444'}">${net.toFixed(2)}€</span></td>
           <td title="${(l.notes||'').replace(/"/g,'&quot;')}" style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l.notes||''}</td>
           <td class="whitespace-nowrap"><button class="btn-ghost" onclick="editLoc('${l.id}')">✏️</button> <button class="btn-ghost" onclick="removeLoc('${l.id}')">🗑️</button></td>`;
         tbody.appendChild(tr);
@@ -253,23 +285,27 @@
     document.getElementById('filterVehicule').addEventListener('change', renderTable);
     renderTable();
 
-    // ===== Params =====
+    // ===== Params UI =====
     function loadParamsIntoUI(){
       $('commission').value=settings.commission; $('wearPerKm').value=settings.wearPerKm; $('kmInclus').value=settings.kmInclus;
       $('clioAss').value=settings.clio.ass; $('clioConn').value=settings.clio.conn; $('clioEnt').value=settings.clio.ent; $('clioAmort').value=settings.clio.amort;
+      $('clioAcqTotal').value=settings.clio.acqTotal||0; $('clioAcqMonths').value=settings.clio.acqMonths||60;
+      $('clioAcqAmort').value=(settings.clio.acqTotal? (Number(settings.clio.acqTotal)/Math.max(1,Number(settings.clio.acqMonths||0))).toFixed(2):0);
       $('teslaAss').value=settings.tesla.ass; $('teslaConn').value=settings.tesla.conn; $('teslaEnt').value=settings.tesla.ent; $('teslaAmort').value=settings.tesla.amort;
     }
     function saveParams(){
       settings.commission=Number($('commission').value||0);
       settings.wearPerKm=Number($('wearPerKm').value||0);
       settings.kmInclus=Number($('kmInclus').value||0);
-      settings.clio={ ass:Number($('clioAss').value||0), conn:Number($('clioConn').value||0), ent:Number($('clioEnt').value||0), amort:Number($('clioAmort').value||0) };
+      settings.clio={ ass:Number($('clioAss').value||0), conn:Number($('clioConn').value||0), ent:Number($('clioEnt').value||0), amort:Number($('clioAmort').value||0),
+        acqTotal:Number($('clioAcqTotal').value||0), acqMonths:Number($('clioAcqMonths').value||60) };
       settings.tesla={ ass:Number($('teslaAss').value||0), conn:Number($('teslaConn').value||0), ent:Number($('teslaEnt').value||0), amort:Number($('teslaAmort').value||0) };
+      $('clioAcqAmort').value = (settings.clio.acqTotal/Math.max(1,settings.clio.acqMonths)).toFixed(2);
       saveAll(); document.getElementById('savedTag').style.display='inline'; setTimeout(()=>document.getElementById('savedTag').style.display='none',1200); renderCharts();
     }
     loadParamsIntoUI();
 
-    // ===== Prévisions (inclut amortissement) =====
+    // ===== Prévisions (incluant amort. acquisition Clio) =====
     let simChart;
     function runSim(){
       const days=Number($('simDays').value||0), price=Number($('simPrice').value||0), kmday=Number($('simKmDay').value||0), season=Number($('simSeason').value||100)/100;
@@ -277,14 +313,16 @@
       const com=(settings.commission||0)/100;
       const after=(price*days)*(1-com);
       const wear=(kmday*days)*(settings.wearPerKm||0);
-      const fix = (veh==='Tesla' ? (settings.tesla.ass+settings.tesla.conn+settings.tesla.ent+settings.tesla.amort)
-                                  : (settings.clio.ass+settings.clio.conn+settings.clio.ent+settings.clio.amort));
+      const fixVeh = (veh==='Tesla' ? (settings.tesla.ass+settings.tesla.conn+settings.tesla.ent+settings.tesla.amort)
+                                     : (settings.clio.ass+settings.clio.conn+settings.clio.ent+settings.clio.amort));
+      const fixAcq = (veh==='Clio') ? clioAcqAmortMonthly() : 0;
+      const fix = fixVeh + fixAcq;
       const net=(after - wear - fix)*season;
-      $('simOut').innerHTML = `
-        <div class="grid md:grid-cols-4 gap-3">
-          <div class="card"><div class="text-sm" style="color:var(--muted)">Net avant frais fixes</div><div class="text-xl font-semibold">${euro(after-wear)}</div></div>
-          <div class="card"><div class="text-sm" style="color:var(--muted)">Frais fixes (${veh})</div><div class="text-xl font-semibold">-${euro(fix)}</div></div>
-          <div class="card"><div class="text-sm" style="color:var(--muted)">Résultat net (après saison.)</div><div class="text-xl font-semibold">${euro(net)}</div></div>
+      document.getElementById('simOut').innerHTML = `
+        <div class="grid-4">
+          <div class="card"><div class="text-sm" style="color:var(--muted)">Net avant fixes</div><div class="text-xl font-semibold">${euro(after-wear)}</div></div>
+          <div class="card"><div class="text-sm" style="color:var(--muted)">Fixes (${veh})</div><div class="text-xl font-semibold">-${euro(fix)}</div><div class="text-xs" style="color:var(--muted)">${veh==='Clio' ? '(incl. amort. acquisition)' : ''}</div></div>
+          <div class="card"><div class="text-sm" style="color:var(--muted)">Résultat net (après saison)</div><div class="text-xl font-semibold">${euro(net)}</div></div>
           <div class="card"><div class="text-sm" style="color:var(--muted)">Point mort (jours)</div><div class="text-xl font-semibold">${pointMort(price, kmday, fix)}</div></div>
         </div>`;
       const months=['01','02','03','04','05','06','07','08','09','10','11','12'], seasonCurve=[0.85,0.8,0.9,1.0,1.05,1.15,1.25,1.2,1.0,0.95,0.85,0.9];
@@ -292,19 +330,21 @@
       if(simChart){ simChart.destroy(); }
       simChart = new Chart(document.getElementById('simChart').getContext('2d'), { type:'bar',
         data:{ labels:months, datasets:[{ label:'Prévision nette mensuelle (€)', data,
-          backgroundColor:data.map(v=> v>=0?'rgba(59,130,246,.8)':'rgba(239,68,68,.8)') }]},
+          backgroundColor:data.map(v=> v>=0?'rgba(16,185,129,.85)':'rgba(239,68,68,.85)') }]},
         options:{ plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(2)} €`}}}, scales:{ y:{ beginAtZero:true } } }
       });
     }
     function pointMort(price, kmday, fix){
-      const com=(settings.commission||0)/100; const netPerDay=price*(1-com) - (kmday*(settings.wearPerKm||0)); if(netPerDay<=0) return '∞'; return (fix/netPerDay).toFixed(1);
+      const com=(settings.commission||0)/100; const netPerDay=price*(1-com) - (kmday*(settings.wearPerKm||0));
+      if(netPerDay<=0) return '∞'; return (fix/netPerDay).toFixed(1);
     }
 
-    // ===== Suivi / Charts (inclut amortissement) =====
+    // ===== Suivi & Graphs (incluant amort. acquisition Clio) =====
     let chartNet, chartCumul;
     function renderCharts(){
       const vehF=$('suiviVehicule').value, mSel=$('suiviMonth').value;
       const filtered = locations.filter(l => (vehF==='ALL' || l.vehicule===vehF) && (!mSel || monthKey(l.date)===mSel));
+
       const monthsMap={}; for(const l of filtered){ const mk=monthKey(l.date); (monthsMap[mk]=monthsMap[mk]||[]).push(l); }
       const months=Object.keys(monthsMap).sort();
       const monthlyBefore=months.map(m=> monthsMap[m].reduce((s,l)=> s+netLocation(l),0));
@@ -312,43 +352,80 @@
       const monthlyFix=months.map(m=>{
         const useVeh = (vehF==='ALL' ? ['Clio','Tesla'].filter(v=> teslaOn ? true : v==='Clio') : [vehF]);
         return useVeh.reduce((sum,v)=>{
-          const f = (v==='Tesla' ? (settings.tesla.ass+settings.tesla.conn+settings.tesla.ent+settings.tesla.amort)
-                                 : (settings.clio.ass+settings.clio.conn+settings.clio.ent+settings.clio.amort));
-          return sum + f;
+          const fixesVeh = (v==='Tesla'
+            ? (settings.tesla.ass+settings.tesla.conn+settings.tesla.ent+settings.tesla.amort)
+            : (settings.clio.ass+settings.clio.conn+settings.clio.ent+settings.clio.amort + clioAcqAmortMonthly()));
+          return sum + fixesVeh;
         },0);
       });
 
       const monthlyAfter = monthlyBefore.map((v,i)=> v - monthlyFix[i]);
 
+      // Résumé + breakdown du mois sélectionné
       const currentM = $('suiviMonth').value || months[months.length-1];
+      const top = document.getElementById('monthTop');
+      const bd = document.getElementById('monthBreakdown');
       if(currentM){
         const list = monthsMap[currentM] || [];
         const before = list.reduce((s,l)=> s + netLocation(l), 0);
-        const fix = (vehF==='ALL'
-          ? (teslaOn ? (settings.clio.ass+settings.clio.conn+settings.clio.ent+settings.clio.amort + settings.tesla.ass+settings.tesla.conn+settings.tesla.ent+settings.tesla.amort)
-                     : (settings.clio.ass+settings.clio.conn+settings.clio.ent+settings.clio.amort))
-          : (vehF==='Tesla' ? (settings.tesla.ass+settings.tesla.conn+settings.tesla.ent+settings.tesla.amort)
-                            : (settings.clio.ass+settings.clio.conn+settings.clio.ent+settings.clio.amort)));
+        // Fix selon filtre
+        const fixClio = settings.clio.ass+settings.clio.conn+settings.clio.ent+settings.clio.amort + clioAcqAmortMonthly();
+        const fixTesla= settings.tesla.ass+settings.tesla.conn+settings.tesla.ent+settings.tesla.amort;
+        let fix = 0;
+        if(vehF==='ALL'){ fix = (teslaOn ? (fixClio+fixTesla) : fixClio); }
+        else { fix = (vehF==='Tesla' ? fixTesla : fixClio); }
         const after = before - fix;
-        $('monthSummary').textContent = `${currentM} · Net (avant fixes): ${euro(before)} · Fixes (ass+conn+ent+amort): -${euro(fix)} · Résultat net: ${euro(after)} ${after>=0?'✅':'❌'}`;
-      } else { $('monthSummary').textContent='Aucune donnée pour le moment.'; }
+
+        top.innerHTML = `${currentM} · Net (avant fixes): <b>${euro(before)}</b> · Fixes: <b>-${euro(fix)}</b> · Résultat net: <b style="color:${after>=0?'#10b981':'#ef4444'}">${euro(after)}</b>`;
+
+        // Breakdown détaillé (affiche tout pour la sélection)
+        const showClio = (vehF!=='Tesla');
+        const showTesla = teslaOn && (vehF!=='Clio');
+        bd.innerHTML = '';
+        if(showClio){
+          const lines = [
+            ['Clio · Assurance', settings.clio.ass],
+            ['Clio · Connect', settings.clio.conn],
+            ['Clio · Entretien', settings.clio.ent],
+            ['Clio · Amort. véhicule', settings.clio.amort],
+            ['Clio · Amort. acquisition', clioAcqAmortMonthly()]
+          ];
+          lines.forEach(([lbl,val])=>{
+            const div=document.createElement('div'); div.textContent = `${lbl}: ${euro(val)}`; div.style.color='var(--muted)'; bd.appendChild(div);
+          });
+        }
+        if(showTesla){
+          const lines = [
+            ['Tesla · Assurance', settings.tesla.ass],
+            ['Tesla · Connect', settings.tesla.conn],
+            ['Tesla · Entretien', settings.tesla.ent],
+            ['Tesla · Amort. véhicule', settings.tesla.amort]
+          ];
+          lines.forEach(([lbl,val])=>{
+            const div=document.createElement('div'); div.textContent = `${lbl}: ${euro(val)}`; div.style.color='var(--muted)'; bd.appendChild(div);
+          });
+        }
+      } else {
+        top.textContent = 'Aucune donnée pour le moment.'; bd.innerHTML='';
+      }
 
       if(chartNet){ chartNet.destroy(); } if(chartCumul){ chartCumul.destroy(); }
       chartNet = new Chart(document.getElementById('chartNet').getContext('2d'), { type:'bar',
         data:{ labels:months, datasets:[{ label:'Net après frais fixes (€)', data:monthlyAfter,
-          backgroundColor: monthlyAfter.map(v=> v>=0 ? 'rgba(59,130,246,.8)' : 'rgba(239,68,68,.8)') }]},
+          backgroundColor: monthlyAfter.map(v=> v>=0 ? 'rgba(16,185,129,.85)' : 'rgba(239,68,68,.85)') }]},
         options:{ plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(2)} €`}}}, scales:{ y:{ beginAtZero:true } } }
       });
       const cum=[]; let acc=0; for(const v of monthlyAfter){ acc+=v; cum.push(acc); }
       chartCumul = new Chart(document.getElementById('chartCumul').getContext('2d'), {
-        type:'line', data:{ labels:months, datasets:[{ label:'Cumul annuel (€)', data:cum, fill:false, borderColor:'rgba(59,130,246,.9)', tension:.25, pointRadius:3 }]},
+        type:'line',
+        data:{ labels:months, datasets:[{ label:'Cumul annuel (€)', data:cum, fill:false, borderColor:'rgba(59,130,246,.9)', tension:.25, pointRadius:3 }]},
         options:{ plugins:{ legend:{display:false} } }
       });
     }
     document.getElementById('suiviVehicule').addEventListener('change', renderCharts);
     document.getElementById('suiviMonth').addEventListener('change', renderCharts);
 
-    // ===== Export/Import =====
+    // ===== Export / Import =====
     document.getElementById('exportJson').addEventListener('click', ()=>{
       const blob = new Blob([JSON.stringify({theme: themeToggle.checked?'light':'dark', teslaOn, settings, locations}, null, 2)], {type:'application/json'});
       const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`roi-data-${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),0);
@@ -357,7 +434,7 @@
       const f=e.target.files?.[0]; if(!f) return;
       const r=new FileReader(); r.onload=()=>{ try{
         const d=JSON.parse(r.result);
-        if(d.theme){ themeToggle.checked=(d.theme==='light'); }
+        if(d.theme){ themeToggle.checked=(d.theme==='light'); applyTheme(); }
         if(typeof d.teslaOn==='boolean'){ teslaOn=d.teslaOn; teslaToggle.checked=teslaOn; }
         if(d.settings) settings=d.settings;
         if(Array.isArray(d.locations)) locations=d.locations;
@@ -372,19 +449,6 @@
     });
 
     // Init
-    function loadParamsIntoUI(){
-      document.getElementById('commission').value=settings.commission;
-      document.getElementById('wearPerKm').value=settings.wearPerKm;
-      document.getElementById('kmInclus').value=settings.kmInclus;
-      document.getElementById('clioAss').value=settings.clio.ass;
-      document.getElementById('clioConn').value=settings.clio.conn;
-      document.getElementById('clioEnt').value=settings.clio.ent;
-      document.getElementById('clioAmort').value=settings.clio.amort;
-      document.getElementById('teslaAss').value=settings.tesla.ass;
-      document.getElementById('teslaConn').value=settings.tesla.conn;
-      document.getElementById('teslaEnt').value=settings.tesla.ent;
-      document.getElementById('teslaAmort').value=settings.tesla.amort;
-    }
     loadParamsIntoUI(); renderCharts();
   </script>
 </body>
