@@ -153,7 +153,7 @@
     <!-- SUIVI -->
     <section id="suivi" class="card hidden">
       <h2 class="text-xl font-semibold mb-1">📊 Suivi mensuel</h2>
-      <p class="hint mb-3">Astuce : choisis un véhicule pour voir <b>uniquement</b> ses résultats. “Tous véhicules” additionne tout et affiche aussi le détail par véhicule.</p>
+      <p class="hint mb-3">Astuce : choisis un véhicule pour voir <b>uniquement</b> ses résultats. “Tous véhicules” additionne tout et affiche aussi le détail par véhicule. Les locations sont ventilées <b>jour par jour</b> sur chaque mois.</p>
       <div class="flex flex-wrap items-center gap-2 mb-3">
         <select id="suiviVehicule" class="w-auto"></select>
         <input type="month" id="suiviMonth" class="w-auto" />
@@ -169,12 +169,11 @@
 
   <script>
     // ===== Storage & State =====
-    const KEY='roi_multi_v5_resid_split_wearperveh';
+    const KEY='roi_multi_v7_resid_split_wearperveh_prorata_equilibre';
     const data = JSON.parse(localStorage.getItem(KEY) || '{}');
     const theme = data.theme || 'dark';
 
-    // Vehicles with residual value & per-vehicle wear switch:
-    // {id, name, active, costs:{ass,conn,ent,totalInvested,residual,amortMonths,useWear}}
+    // Vehicles with residual value & per-vehicle wear switch
     let vehicles = data.vehicles || [
       { id:'clio',  name:'Clio',  active:true, costs:{ass:56, conn:25, ent:45, totalInvested:11659, residual:0, amortMonths:60, useWear:false} },
       { id:'tesla', name:'Tesla', active:true, costs:{ass:115, conn:0,  ent:30, totalInvested:0,     residual:0, amortMonths:60, useWear:false} }
@@ -207,24 +206,54 @@
     const euro=n=>`${(n||0).toFixed(2)}€`;
     const monthKey=d=> d?.slice(0,7);
 
+    // ===== Date helpers (prorata multi-mois) =====
+    function parseDateISO(dateStr){
+      const [y,m,d]=dateStr.split('-').map(Number);
+      return new Date(Date.UTC(y, m-1, d));
+    }
+    function addDaysUTC(dateObj, n){
+      const d=new Date(dateObj.getTime());
+      d.setUTCDate(d.getUTCDate()+n);
+      return d;
+    }
+    function monthKeyFromDate(dateObj){
+      const y=dateObj.getUTCFullYear();
+      const m=String(dateObj.getUTCMonth()+1).padStart(2,'0');
+      return `${y}-${m}`;
+    }
+    // Ventile le net d'une location jour par jour sur chaque mois concerné
+    function splitLocationNetByMonth(l){
+      const days=Math.max(1, Number(l.jours||1));
+      const start=parseDateISO(l.date);
+      const totalNet=netLocation(l);
+      const perDay=totalNet/days;
+      const map={};
+      for(let i=0;i<days;i++){
+        const d=addDaysUTC(start, i);
+        const mk=monthKeyFromDate(d);
+        map[mk]=(map[mk]||0)+perDay;
+      }
+      return map;
+    }
+
     // ===== Vehicles logic =====
     function monthlyAmort(v){
       const c=v.costs||{};
       const months=Math.max(1, Number(c.amortMonths||0));
-      let base = Number(c.totalInvested||0) - Number(c.residual||0);
-      if(base < 0) base = 0;
-      return base / months;
+      let base=Number(c.totalInvested||0)-Number(c.residual||0);
+      if(base<0) base=0;
+      return base/months;
     }
     function fixedCostsMonthly(v){
       const c=v.costs||{};
-      return (c.ass||0) + (c.conn||0) + (c.ent||0) + monthlyAmort(v);
+      return (c.ass||0)+(c.conn||0)+(c.ent||0)+monthlyAmort(v);
     }
     function fixedCostsBreakdown(v){
       const c=v.costs||{};
       return {
         ass:c.ass||0, conn:c.conn||0, ent:c.ent||0,
         amort: monthlyAmort(v),
-        base: Math.max(0, (c.totalInvested||0) - (c.residual||0)),
+        base: Math.max(0,(c.totalInvested||0)-(c.residual||0)),
         months: Math.max(1, Number(c.amortMonths||0))
       };
     }
@@ -232,7 +261,6 @@
 
     // ===== Vehicles UI =====
     function renderVehiclesUI(){
-      // Fill selects
       const active=vehicles.filter(v=> v.active);
       ['vehicule','filterVehicule','simVehicule','suiviVehicule'].forEach(id=>{
         const el=$(id); if(!el) return; el.innerHTML='';
@@ -244,10 +272,9 @@
 
       // Default suivi: premier véhicule actif
       const sel=$('suiviVehicule');
-      const firstActive = vehicles.find(v=>v.active);
+      const firstActive=vehicles.find(v=>v.active);
       if(firstActive && (!sel.dataset.setOnce || sel.value==='ALL')){
-        sel.value = firstActive.id;
-        sel.dataset.setOnce = '1';
+        sel.value=firstActive.id; sel.dataset.setOnce='1';
       }
 
       // Cards
@@ -273,7 +300,7 @@
           </div>
           <div class="grid-3 mt-2">
             <div><label>Base amortissable</label><input type="text" value="${Math.max(0,(c.totalInvested||0)-(c.residual||0)).toFixed(2)} €" disabled/></div>
-            <div><label>Formule</label><input type="text" value="(Total – Résiduelle) ÷ Mois" disabled/></div>
+            <div><label>Formule</label><input type="text" value="(Total - Résiduelle) ÷ Mois" disabled/></div>
             <div><label>Résultat</label><input type="text" value="${amort.toFixed(2)} €/mois" disabled/></div>
           </div>
           <div class="mt-2">
@@ -418,10 +445,24 @@
       const useWear = !!veh?.costs?.useWear;
       const wearMonthly = useWear ? (kmday*days)*wearPerKm : 0;
 
+      // Prix proprio minimum d’équilibre
+      let pMin = Infinity, pMinShown = Infinity;
+      if(days > 0 && (1-com) > 0){
+        pMin = (fixed + wearMonthly) / (days*(1-com));
+        pMinShown = pMin / (1-com);
+      }
+
       $('simSummary').innerHTML=`
         <div class="card"><div class="text-sm hint">Prix proprio / Prix affiché estimé</div><div class="text-xl font-extrabold">${euro(price)} / ${euro(shownPrice)}</div></div>
         <div class="card"><div class="text-sm hint">Après com – ${useWear?'Usure':'Usure ignorée'}</div><div class="text-xl font-extrabold">${euro(after)} – ${euro(wearMonthly)}</div></div>
         <div class="card"><div class="text-sm hint">Fixes mensuels (${veh.name})</div><div class="text-xl font-extrabold">-${euro(fixed)}</div><div class="text-xs hint">(incl. amort. basé sur Total – Résiduelle)</div></div>
+        <div class="card">
+          <div class="text-sm hint">🎯 Prix proprio minimum (équilibre)</div>
+          <div class="text-xl font-extrabold">${isFinite(pMin)?euro(pMin):'—'} <span class="text-sm hint">(${isFinite(pMinShown)?euro(pMinShown):'—'} affiché)</span></div>
+          <div class="mt-2">
+            <button class="btn-ghost" onclick="(function(){ if(!isFinite(${pMin})) return; $('simPrice').value='${(pMin.toFixed? pMin.toFixed(2) : '0')}'; })()">⬅️ Appliquer ce prix</button>
+          </div>
+        </div>
       `;
 
       const tbody=$('simTable'); tbody.innerHTML='';
@@ -452,10 +493,9 @@
       });
     }
 
-    // ===== Suivi =====
+    // ===== Suivi (avec prorata multi-mois) =====
     let chartNet, chartCumul;
     function renderCharts(){
-      // build select
       const sel=$('suiviVehicule'); sel.innerHTML='';
       const active = vehicles.filter(v=>v.active);
       const optAll=document.createElement('option'); optAll.value='ALL'; optAll.textContent='Tous véhicules'; sel.appendChild(optAll);
@@ -465,49 +505,49 @@
       const vehF=sel.value;
       const mSel=$('suiviMonth').value;
 
-      // filtre locations
-      const filtered = locations.filter(l => (vehF==='ALL' || l.vehiculeId===vehF) && (!mSel || monthKey(l.date)===mSel));
+      // Locations filtrées par véhicule (on ventile ensuite par mois)
+      const filtered = locations.filter(l => (vehF==='ALL' || l.vehiculeId===vehF));
 
-      // groupement mensuel
-      const monthsMap={};
-      for(const l of filtered){
-        const mk=monthKey(l.date);
-        (monthsMap[mk]=monthsMap[mk]||[]).push(l);
-      }
-      const months=Object.keys(monthsMap).sort();
+      // Agrégation proratisée par mois
+      const monthsNetMap={}; // {'YYYY-MM': netAvantFixes}
+      filtered.forEach(l=>{
+        const piece=splitLocationNetByMonth(l);
+        Object.entries(piece).forEach(([mk,val])=>{
+          if(!mSel || mk===mSel){
+            monthsNetMap[mk]=(monthsNetMap[mk]||0)+val;
+          }
+        });
+      });
 
-      // calculs par mois selon sélection
+      const months=Object.keys(monthsNetMap).sort();
+
+      // Frais fixes selon sélection
       let monthlyBefore=[], monthlyFix=[], monthlyAfter=[];
       if(vehF==='ALL'){
-        monthlyBefore = months.map(m => monthsMap[m].reduce((s,l)=> s+netLocation(l),0));
+        monthlyBefore = months.map(m => monthsNetMap[m]||0);
         monthlyFix    = months.map(_ => active.reduce((s,v)=> s + fixedCostsMonthly(v), 0));
       } else {
-        monthlyBefore = months.map(m => (monthsMap[m]||[]).filter(l=>l.vehiculeId===vehF).reduce((s,l)=> s+netLocation(l),0));
-        const vSel = vehicleById(vehF);
+        monthlyBefore = months.map(m => monthsNetMap[m]||0);
+        const vSel=vehicleById(vehF);
         monthlyFix = months.map(_ => fixedCostsMonthly(vSel));
       }
       monthlyAfter = monthlyBefore.map((v,i)=> v - monthlyFix[i]);
 
-      // résumé du mois sélectionné
-      const currentM=$('suiviMonth').value || months[months.length-1];
+      // Résumé mois sélectionné
+      const currentM = mSel || months[months.length-1];
       const top=$('monthTop'), bd=$('monthBreakdown');
       if(currentM){
-        let before, fixSel;
-        if(vehF==='ALL'){
-          before = (monthsMap[currentM]||[]).reduce((s,l)=> s+netLocation(l), 0);
-          fixSel = active.reduce((s,v)=> s+fixedCostsMonthly(v), 0);
-        }else{
-          const list = (monthsMap[currentM]||[]).filter(l=> l.vehiculeId===vehF);
-          before = list.reduce((s,l)=> s+netLocation(l), 0);
-          fixSel = fixedCostsMonthly(vehicleById(vehF));
-        }
+        const before = monthsNetMap[currentM] || 0;
+        const fixSel = (vehF==='ALL'
+          ? vehicles.filter(v=>v.active).reduce((s,v)=> s+fixedCostsMonthly(v), 0)
+          : fixedCostsMonthly(vehicleById(vehF))
+        );
         const after = before - fixSel;
         top.innerHTML=`${currentM||'—'} · Net (avant fixes): <b>${euro(before)}</b> · Fixes: <b>-${euro(fixSel)}</b> · Résultat net: <b style="color:${after>=0?'var(--pos)':'var(--neg)'}">${euro(after)}</b>`;
 
-        // breakdown
+        // Breakdown cartes
         bd.innerHTML='';
         if(vehF==='ALL'){
-          // cartes par véhicule + total
           active.forEach(v=>{
             const b=fixedCostsBreakdown(v);
             const card=document.createElement('div'); card.className='card';
@@ -516,7 +556,7 @@
                 <div><div class="text-xs hint">Assurance</div><div class="text-lg font-bold">${euro(b.ass)}</div></div>
                 <div><div class="text-xs hint">Connect</div><div class="text-lg font-bold">${euro(b.conn)}</div></div>
                 <div><div class="text-xs hint">Entretien</div><div class="text-lg font-bold">${euro(b.ent)}</div></div>
-                <div><div class="text-xs hint">Amort. (Total – Résiduelle) ÷ ${b.months}</div><div class="text-lg font-bold">${euro(b.amort)}</div></div>
+                <div><div class="text-xs hint">Amort. (Total - Résiduelle) ÷ ${b.months}</div><div class="text-lg font-bold">${euro(b.amort)}</div></div>
               </div>`;
             bd.appendChild(card);
           });
@@ -532,16 +572,16 @@
               <div><div class="text-xs hint">Assurance</div><div class="text-lg font-bold">${euro(b.ass)}</div></div>
               <div><div class="text-xs hint">Connect</div><div class="text-lg font-bold">${euro(b.conn)}</div></div>
               <div><div class="text-xs hint">Entretien</div><div class="text-lg font-bold">${euro(b.ent)}</div></div>
-              <div><div class="text-xs hint">Amort. (Total – Résiduelle) ÷ ${b.months}</div><div class="text-lg font-bold">${euro(b.amort)}</div></div>
+              <div><div class="text-xs hint">Amort. (Total - Résiduelle) ÷ ${b.months}</div><div class="text-lg font-bold">${euro(b.amort)}</div></div>
             </div>`;
           bd.appendChild(card);
         }
-      }else{
+      } else {
         top.textContent='Aucune donnée';
         bd.innerHTML='';
       }
 
-      // charts
+      // Charts
       if(chartNet) chartNet.destroy(); if(chartCumul) chartCumul.destroy();
       chartNet=new Chart(document.getElementById('chartNet').getContext('2d'), {
         type:'bar',
