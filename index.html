@@ -15,7 +15,7 @@
     }
     .light{
       --bg1:#f7f8fb; --bg2:#eef1f6; --card:rgba(255,255,255,.9); --text:#0f172a; --muted:#5b6576;
-      --border:rgba(15,23,42,.12); --ring:#0ea5e9;
+      --border:rgba(15,15,30,.12); --ring:#0ea5e9;
       --primary:#2563eb; --primary-d:#1e40af;
       --pos:#16a34a; --neg:#ef4444;
     }
@@ -44,6 +44,7 @@
     .toggle input:checked{ background:linear-gradient(180deg,var(--primary),var(--primary-d)); }
     .toggle input:before{ content:""; position:absolute; top:2px; left:2px; width:1.05rem; height:1.05rem; background:#fff; border-radius:999px; transition:all .18s ease; }
     .toggle input:checked:before{ transform:translateX(1.2rem); }
+    .hint{ color:var(--muted); font-size:.85rem; }
   </style>
 </head>
 <body>
@@ -51,7 +52,7 @@
     <div class="flex items-center justify-between gap-4">
       <h1 class="text-2xl font-extrabold">📊 Dashboard ROI – Flotte Auto</h1>
       <div class="flex flex-wrap items-center gap-2">
-        <label class="toggle" title="Basculer thème clair/sombre"><span style="color:var(--muted)">Thème clair</span><input type="checkbox" id="themeToggle"/></label>
+        <label class="toggle" title="Basculer thème clair/sombre"><span class="hint">Thème clair</span><input type="checkbox" id="themeToggle"/></label>
         <button id="exportJson" class="btn-ghost">Export JSON</button>
         <label class="btn-ghost cursor-pointer">Import JSON<input id="importJson" type="file" accept="application/json" class="hidden"/></label>
         <button id="exportCsv" class="btn-ghost">Export CSV</button>
@@ -93,7 +94,7 @@
           <tbody id="locTable"></tbody>
         </table>
       </div>
-      <p class="text-sm mt-2" style="color:var(--muted)">Net location = (prix × jours × (1–commission)) − usure(km×€/km) − frais divers + ajustement carburant.</p>
+      <p class="text-sm mt-2 hint">Net location = (prix × jours × (1–commission)) − usure(km×€/km) − frais divers + ajustement carburant.</p>
     </section>
 
     <!-- VEHICLES -->
@@ -150,7 +151,8 @@
 
     <!-- SUIVI -->
     <section id="suivi" class="card hidden">
-      <h2 class="text-xl font-semibold mb-3">📊 Suivi mensuel</h2>
+      <h2 class="text-xl font-semibold mb-1">📊 Suivi mensuel</h2>
+      <p class="hint mb-3">Astuce : choisis un véhicule pour voir <b>uniquement</b> ses résultats. “Tous véhicules” additionne tout et affiche aussi le détail par véhicule.</p>
       <div class="flex flex-wrap items-center gap-2 mb-3">
         <select id="suiviVehicule" class="w-auto"></select>
         <input type="month" id="suiviMonth" class="w-auto" />
@@ -166,7 +168,7 @@
 
   <script>
     // ===== Storage & State =====
-    const KEY='roi_multi_v3_resid';
+    const KEY='roi_multi_v4_resid_split';
     const data = JSON.parse(localStorage.getItem(KEY) || '{}');
     const theme = data.theme || 'dark';
 
@@ -176,7 +178,7 @@
       { id:'clio',  name:'Clio',  active:true, costs:{ass:56, conn:25, ent:45, totalInvested:11659, residual:0, amortMonths:60} },
       { id:'tesla', name:'Tesla', active:true, costs:{ass:115, conn:0,  ent:30, totalInvested:0,     residual:0, amortMonths:60} }
     ];
-    // Migration depuis versions précédentes (sans residual)
+    // Migrations
     vehicles = vehicles.map(v=>{
       const c=v.costs||{};
       if(c.totalInvested===undefined){
@@ -238,6 +240,14 @@
         active.forEach(v=>{ const o=document.createElement('option'); o.value=v.id; o.textContent=v.name; el.appendChild(o); });
       });
 
+      // Défaut de suivi: premier véhicule actif (évite l’addition involontaire)
+      const sel=$('suiviVehicule');
+      const firstActive = vehicles.find(v=>v.active);
+      if(firstActive && (!sel.dataset.setOnce || sel.value==='ALL')){
+        sel.value = firstActive.id;
+        sel.dataset.setOnce = '1';
+      }
+
       // Cards
       const wrap=$('vehiclesList'); wrap.innerHTML='';
       vehicles.forEach(v=>{
@@ -246,7 +256,7 @@
         card.innerHTML=`
           <div class="flex items-center justify-between">
             <input value="${v.name}" data-id="${v.id}" class="veh-name" style="max-width:240px"/>
-            <label class="toggle"><span style="color:var(--muted)">Actif</span><input type="checkbox" ${v.active?'checked':''} data-id="${v.id}" class="veh-active"/></label>
+            <label class="toggle"><span class="hint">Actif</span><input type="checkbox" ${v.active?'checked':''} data-id="${v.id}" class="veh-active"/></label>
           </div>
           <div class="grid-4 mt-3">
             <div><label>Assurance / mois</label><input type="number" step="0.1" value="${c.ass||0}" class="veh-ass" data-id="${v.id}"/></div>
@@ -273,13 +283,13 @@
 
       // Wire inputs
       wrap.querySelectorAll('.veh-name').forEach(i=> i.oninput = e=>{ const v=vehicleById(e.target.dataset.id); if(v){ v.name=e.target.value; saveAll(); renderVehiclesUI(); }});
-      wrap.querySelectorAll('.veh-active').forEach(i=> i.onchange = e=>{ const v=vehicleById(e.target.dataset.id); if(v){ v.active=e.target.checked; saveAll(); renderVehiclesUI(); }});
+      wrap.querySelectorAll('.veh-active').forEach(i=> i.onchange = e=>{ const v=vehicleById(e.target.dataset.id); if(v){ v.active=e.target.checked; saveAll(); renderVehiclesUI(); renderCharts(); }});
       wrap.querySelectorAll('.veh-ass').forEach(i=> i.oninput = e=>{ const v=vehicleById(e.target.dataset.id); if(v){ v.costs.ass=Number(e.target.value||0); saveAll(); }});
       wrap.querySelectorAll('.veh-conn').forEach(i=> i.oninput = e=>{ const v=vehicleById(e.target.dataset.id); if(v){ v.costs.conn=Number(e.target.value||0); saveAll(); }});
       wrap.querySelectorAll('.veh-ent').forEach(i=> i.oninput = e=>{ const v=vehicleById(e.target.dataset.id); if(v){ v.costs.ent=Number(e.target.value||0); saveAll(); }});
-      wrap.querySelectorAll('.veh-total').forEach(i=> i.oninput = e=>{ const v=vehicleById(e.target.dataset.id); if(v){ v.costs.totalInvested=Number(e.target.value||0); saveAll(); renderVehiclesUI(); }});
-      wrap.querySelectorAll('.veh-resid').forEach(i=> i.oninput = e=>{ const v=vehicleById(e.target.dataset.id); if(v){ v.costs.residual=Number(e.target.value||0); saveAll(); renderVehiclesUI(); }});
-      wrap.querySelectorAll('.veh-months').forEach(i=> i.oninput = e=>{ const v=vehicleById(e.target.dataset.id); if(v){ v.costs.amortMonths=Math.max(1,Number(e.target.value||1)); saveAll(); renderVehiclesUI(); }});
+      wrap.querySelectorAll('.veh-total').forEach(i=> i.oninput = e=>{ const v=vehicleById(e.target.dataset.id); if(v){ v.costs.totalInvested=Number(e.target.value||0); saveAll(); renderVehiclesUI(); renderCharts(); }});
+      wrap.querySelectorAll('.veh-resid').forEach(i=> i.oninput = e=>{ const v=vehicleById(e.target.dataset.id); if(v){ v.costs.residual=Number(e.target.value||0); saveAll(); renderVehiclesUI(); renderCharts(); }});
+      wrap.querySelectorAll('.veh-months').forEach(i=> i.oninput = e=>{ const v=vehicleById(e.target.dataset.id); if(v){ v.costs.amortMonths=Math.max(1,Number(e.target.value||1)); saveAll(); renderVehiclesUI(); renderCharts(); }});
     }
     function addVehicle(){
       const id='veh_'+Math.random().toString(36).slice(2,8);
@@ -309,6 +319,7 @@
       document.getElementById(id).classList.remove('hidden');
       if(id==='suivi') renderCharts();
       if(id==='previsions') fillSimDefaults();
+      if(id==='vehicles') renderVehiclesUI();
     }
 
     // ===== Locations =====
@@ -341,6 +352,7 @@
     }
 
     // Table Locations + filtres
+    function clearFilters(){ $('filterVehicule').value='ALL'; $('filterMonth').value=''; renderTable(); }
     function fillFilters(){
       const filt=$('filterVehicule'); filt.innerHTML='';
       const optAll=document.createElement('option'); optAll.value='ALL'; optAll.textContent='Tous véhicules'; filt.appendChild(optAll);
@@ -394,34 +406,33 @@
       const monthlyGross=price*days, after=monthlyGross*(1-com), wear=(kmday*days)*wearPerKm;
 
       $('simSummary').innerHTML=`
-        <div class="card"><div class="text-sm" style="color:var(--muted)">Prix proprio / Prix affiché estimé</div><div class="text-xl font-extrabold">${euro(price)} / ${euro(shownPrice)}</div></div>
-        <div class="card"><div class="text-sm" style="color:var(--muted)">Après com – Usure</div><div class="text-xl font-extrabold">${euro(after)} – ${euro(wear)}</div></div>
-        <div class="card"><div class="text-sm" style="color:var(--muted)">Fixes mensuels (${veh.name})</div><div class="text-xl font-extrabold">-${euro(fixed)}</div><div class="text-xs" style="color:var(--muted)">(incl. amort. basé sur Total – Résiduelle)</div></div>
+        <div class="card"><div class="text-sm hint">Prix proprio / Prix affiché estimé</div><div class="text-xl font-extrabold">${euro(price)} / ${euro(shownPrice)}</div></div>
+        <div class="card"><div class="text-sm hint">Après com – Usure</div><div class="text-xl font-extrabold">${euro(after)} – ${euro(wear)}</div></div>
+        <div class="card"><div class="text-sm hint">Fixes mensuels (${veh.name})</div><div class="text-xl font-extrabold">-${euro(fixed)}</div><div class="text-xs hint">(incl. amort. basé sur Total – Résiduelle)</div></div>
       `;
 
       const tbody=$('simTable'); tbody.innerHTML='';
-      const labels=['01','02','03','04','05','06','07','08','09','10','11','12']; const data=[];
+      const labels=['01','02','03','04','05','06','07','08','09','10','11','12']; const dataBar=[];
       labels.forEach((m,i)=>{
         const factor=seasonCurve[i]*seasonBase;
         const g=monthlyGross*factor, a=g*(1-com), w=(kmday*days)*wearPerKm*factor, n=a-w-fixed;
-        data.push(n);
+        dataBar.push(n);
         const tr=document.createElement('tr'); tr.innerHTML=`<td>${m}</td><td>${euro(g)}</td><td>${euro(a)}</td><td>${euro(w)}</td><td>${euro(fixed)}</td><td><b>${euro(n)}</b></td>`; tbody.appendChild(tr);
       });
 
       if(simChart) simChart.destroy();
       simChart=new Chart(document.getElementById('simChart').getContext('2d'), {
         type:'bar',
-        data:{ labels, datasets:[{ label:`Net mensuel – ${veh.name}`, data, backgroundColor:data.map(v=> v>=0?'rgba(79,70,229,.9)':'rgba(239,68,68,.9)') }]},
+        data:{ labels, datasets:[{ label:`Net mensuel – ${veh.name}`, data:dataBar, backgroundColor:dataBar.map(v=> v>=0?'rgba(79,70,229,.9)':'rgba(239,68,68,.9)') }]},
         options:{ plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true}} }
       });
 
-      // What-if
       const wi=[{lbl:'+2j', d:days+2,p:price},{lbl:'-2j',d:Math.max(0,days-2),p:price},{lbl:'+5€',d:days,p:price+5},{lbl:'-5€',d:days,p:Math.max(0,price-5)},{lbl:'+2j & +5€',d:days+2,p:price+5}];
       const wrap=$('simWhatIf'); wrap.innerHTML='';
       wi.forEach(s=>{
         const g=s.p*s.d,a=g*(1-com),w=(kmday*s.d)*wearPerKm,n=a-w-fixed;
         const c=document.createElement('div'); c.className='card';
-        c.innerHTML=`<div class="text-sm" style="color:var(--muted)">${s.lbl}</div><div class="text-lg font-extrabold">${euro(n)}</div><div class="text-xs" style="color:var(--muted)">CA ${euro(g)} · Après com ${euro(a)} · Usure ${euro(w)}</div>`;
+        c.innerHTML=`<div class="text-sm hint">${s.lbl}</div><div class="text-lg font-extrabold">${euro(n)}</div><div class="text-xs hint">CA ${euro(g)} · Après com ${euro(a)} · Usure ${euro(w)}</div>`;
         wrap.appendChild(c);
       });
     }
@@ -429,59 +440,116 @@
     // ===== Suivi =====
     let chartNet, chartCumul;
     function renderCharts(){
-      const sel=$('suiviVehicule'); sel.innerHTML=''; const optAll=document.createElement('option'); optAll.value='ALL'; optAll.textContent='Tous véhicules'; sel.appendChild(optAll);
-      vehicles.filter(v=>v.active).forEach(v=>{ const o=document.createElement('option'); o.value=v.id; o.textContent=v.name; sel.appendChild(o); }); if(!sel.value) sel.value='ALL';
+      // build select
+      const sel=$('suiviVehicule'); sel.innerHTML='';
+      const active = vehicles.filter(v=>v.active);
+      const optAll=document.createElement('option'); optAll.value='ALL'; optAll.textContent='Tous véhicules'; sel.appendChild(optAll);
+      active.forEach(v=>{ const o=document.createElement('option'); o.value=v.id; o.textContent=v.name; sel.appendChild(o); });
+      // garder valeur si déjà choisie
+      if(!sel.value || (!sel.dataset.setOnce && active[0])){ sel.value = active[0]?.id || 'ALL'; sel.dataset.setOnce='1'; }
 
-      const vehF=sel.value, mSel=$('suiviMonth').value;
-      const filtered=locations.filter(l=> (vehF==='ALL'||l.vehiculeId===vehF) && (!mSel||monthKey(l.date)===mSel));
-      const monthsMap={}; for(const l of filtered){ const mk=monthKey(l.date); (monthsMap[mk]=monthsMap[mk]||[]).push(l); }
+      const vehF=sel.value;
+      const mSel=$('suiviMonth').value;
+
+      // filtre locations
+      const filtered = locations.filter(l => (vehF==='ALL' || l.vehiculeId===vehF) && (!mSel || monthKey(l.date)===mSel));
+
+      // groupement mensuel
+      const monthsMap={};
+      for(const l of filtered){
+        const mk=monthKey(l.date);
+        (monthsMap[mk]=monthsMap[mk]||[]).push(l);
+      }
       const months=Object.keys(monthsMap).sort();
-      const monthlyBefore=months.map(m=> monthsMap[m].reduce((s,l)=> s+netLocation(l),0));
-      const monthlyFix=months.map(_=> (vehF==='ALL' ? vehicles.filter(v=>v.active).reduce((s,v)=> s+fixedCostsMonthly(v),0) : fixedCostsMonthly(vehicleById(vehF))));
-      const monthlyAfter=monthlyBefore.map((v,i)=> v-monthlyFix[i]);
 
+      // calculs par mois selon sélection
+      let monthlyBefore=[], monthlyFix=[], monthlyAfter=[];
+      if(vehF==='ALL'){
+        monthlyBefore = months.map(m => monthsMap[m].reduce((s,l)=> s+netLocation(l),0));
+        monthlyFix    = months.map(_ => active.reduce((s,v)=> s + fixedCostsMonthly(v), 0));
+      } else {
+        monthlyBefore = months.map(m => (monthsMap[m]||[]).filter(l=>l.vehiculeId===vehF).reduce((s,l)=> s+netLocation(l),0));
+        const vSel = vehicleById(vehF);
+        monthlyFix = months.map(_ => fixedCostsMonthly(vSel));
+      }
+      monthlyAfter = monthlyBefore.map((v,i)=> v - monthlyFix[i]);
+
+      // résumé du mois sélectionné
       const currentM=$('suiviMonth').value || months[months.length-1];
       const top=$('monthTop'), bd=$('monthBreakdown');
       if(currentM){
-        const list=monthsMap[currentM]||[]; const before=list.reduce((s,l)=> s+netLocation(l),0);
-        const fixSel=(vehF==='ALL' ? vehicles.filter(v=>v.active).reduce((s,v)=> s+fixedCostsMonthly(v),0) : fixedCostsMonthly(vehicleById(vehF)));
-        const after=before-fixSel;
-        top.innerHTML=`${currentM} · Net (avant fixes): <b>${euro(before)}</b> · Fixes: <b>-${euro(fixSel)}</b> · Résultat net: <b style="color:${after>=0?'var(--pos)':'var(--neg)'}">${euro(after)}</b>`;
-        bd.innerHTML='';
-        (vehF==='ALL'?vehicles.filter(v=>v.active):[vehicleById(vehF)]).forEach(v=>{
-          const b=fixedCostsBreakdown(v);
-          const card=document.createElement('div'); card.className='card';
-          card.innerHTML=`<div class="text-sm" style="color:var(--muted)">${v.name} – Détail fixes</div>
-          <div class="grid-3 mt-2">
-            <div><div class="text-xs" style="color:var(--muted)">Assurance</div><div class="text-lg font-bold">${euro(b.ass)}</div></div>
-            <div><div class="text-xs" style="color:var(--muted)">Connect</div><div class="text-lg font-bold">${euro(b.conn)}</div></div>
-            <div><div class="text-xs" style="color:var(--muted)">Entretien</div><div class="text-lg font-bold">${euro(b.ent)}</div></div>
-            <div><div class="text-xs" style="color:var(--muted)">Amort. (Total – Résiduelle) ÷ ${b.months}</div><div class="text-lg font-bold">${euro(b.amort)}</div></div>
-          </div>`;
-          bd.appendChild(card);
-        });
-      }else{ top.textContent='Aucune donnée'; bd.innerHTML=''; }
+        let before, fixSel;
+        if(vehF==='ALL'){
+          before = (monthsMap[currentM]||[]).reduce((s,l)=> s+netLocation(l), 0);
+          fixSel = active.reduce((s,v)=> s+fixedCostsMonthly(v), 0);
+        }else{
+          const list = (monthsMap[currentM]||[]).filter(l=> l.vehiculeId===vehF);
+          before = list.reduce((s,l)=> s+netLocation(l), 0);
+          fixSel = fixedCostsMonthly(vehicleById(vehF));
+        }
+        const after = before - fixSel;
+        top.innerHTML=`${currentM||'—'} · Net (avant fixes): <b>${euro(before)}</b> · Fixes: <b>-${euro(fixSel)}</b> · Résultat net: <b style="color:${after>=0?'var(--pos)':'var(--neg)'}">${euro(after)}</b>`;
 
+        // breakdown
+        bd.innerHTML='';
+        if(vehF==='ALL'){
+          // cartes par véhicule + total
+          active.forEach(v=>{
+            const b=fixedCostsBreakdown(v);
+            const card=document.createElement('div'); card.className='card';
+            card.innerHTML=`<div class="text-sm hint">${v.name} – Détail fixes</div>
+              <div class="grid-3 mt-2">
+                <div><div class="text-xs hint">Assurance</div><div class="text-lg font-bold">${euro(b.ass)}</div></div>
+                <div><div class="text-xs hint">Connect</div><div class="text-lg font-bold">${euro(b.conn)}</div></div>
+                <div><div class="text-xs hint">Entretien</div><div class="text-lg font-bold">${euro(b.ent)}</div></div>
+                <div><div class="text-xs hint">Amort. (Total – Résiduelle) ÷ ${b.months}</div><div class="text-lg font-bold">${euro(b.amort)}</div></div>
+              </div>`;
+            bd.appendChild(card);
+          });
+          const total = active.reduce((s,v)=> s+fixedCostsMonthly(v), 0);
+          const cardTot=document.createElement('div'); cardTot.className='card';
+          cardTot.innerHTML=`<div class="text-sm hint">Total véhicules actifs – Fixes</div><div class="text-2xl font-extrabold">${euro(total)}</div>`;
+          bd.appendChild(cardTot);
+        } else {
+          const v=vehicleById(vehF); const b=fixedCostsBreakdown(v);
+          const card=document.createElement('div'); card.className='card';
+          card.innerHTML=`<div class="text-sm hint">${v.name} – Détail fixes</div>
+            <div class="grid-3 mt-2">
+              <div><div class="text-xs hint">Assurance</div><div class="text-lg font-bold">${euro(b.ass)}</div></div>
+              <div><div class="text-xs hint">Connect</div><div class="text-lg font-bold">${euro(b.conn)}</div></div>
+              <div><div class="text-xs hint">Entretien</div><div class="text-lg font-bold">${euro(b.ent)}</div></div>
+              <div><div class="text-xs hint">Amort. (Total – Résiduelle) ÷ ${b.months}</div><div class="text-lg font-bold">${euro(b.amort)}</div></div>
+            </div>`;
+          bd.appendChild(card);
+        }
+      }else{
+        top.textContent='Aucune donnée';
+        bd.innerHTML='';
+      }
+
+      // charts
       if(chartNet) chartNet.destroy(); if(chartCumul) chartCumul.destroy();
-      chartNet=new Chart(document.getElementById('chartNet').getContext('2d'), { type:'bar',
+      chartNet=new Chart(document.getElementById('chartNet').getContext('2d'), {
+        type:'bar',
         data:{ labels:months, datasets:[{ label:'Net après frais fixes (€)', data:monthlyAfter, backgroundColor:monthlyAfter.map(v=> v>=0?'rgba(79,70,229,.9)':'rgba(239,68,68,.9)') }]},
         options:{ plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
       });
       const cum=[]; let acc=0; for(const v of monthlyAfter){ acc+=v; cum.push(acc); }
-      chartCumul=new Chart(document.getElementById('chartCumul').getContext('2d'), { type:'line',
-        data:{ labels:months, datasets:[{ label:'Cumul annuel (€)', data:cum, fill:false, borderColor:'rgba(79,70,229,.95)', tension:.25, pointRadius:3 }]},
+      chartCumul=new Chart(document.getElementById('chartCumul').getContext('2d'), {
+        type:'line',
+        data:{ labels:months, datasets:[{ label:'Cumul (€)', data:cum, fill:false, borderColor:'rgba(79,70,229,.95)', tension:.25, pointRadius:3 }]},
         options:{ plugins:{legend:{display:false}} }
       });
     }
-    $('suiviVehicule')?.addEventListener('change', renderCharts);
-    $('suiviMonth')?.addEventListener('change', renderCharts);
+    document.getElementById('suiviVehicule')?.addEventListener('change', renderCharts);
+    document.getElementById('suiviMonth')?.addEventListener('change', renderCharts);
 
     // ===== Export / Import =====
-    $('exportJson').addEventListener('click', ()=>{
+    document.getElementById('exportJson').addEventListener('click', ()=>{
       const blob=new Blob([JSON.stringify({theme: themeToggle.checked?'light':'dark', vehicles, globals, locations}, null, 2)], {type:'application/json'});
       const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`roi-data-${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),0);
     });
-    $('importJson').addEventListener('change', e=>{
+    document.getElementById('importJson').addEventListener('change', e=>{
       const f=e.target.files?.[0]; if(!f) return;
       const r=new FileReader(); r.onload=()=>{ try{
         const d=JSON.parse(r.result);
@@ -492,21 +560,28 @@
         saveAll(); renderVehiclesUI(); fillVehSelect(); fillFilters(); renderTable(); renderCharts(); fillSimDefaults(); alert('Import réussi ✅');
       }catch(_){ alert('Fichier invalide ❌'); } }; r.readAsText(f);
     });
-    $('exportCsv').addEventListener('click', ()=>{
+    document.getElementById('exportCsv').addEventListener('click', ()=>{
       const rows=[['id','date','jours','prixJour','kms','extras','fuelAdj','vehicule','net','notes']];
       locations.forEach(l=> rows.push([l.id,l.date,l.jours,l.prixJour,l.kms,l.extras,l.fuelAdj||0,(vehicleById(l.vehiculeId)?.name||''),netLocation(l).toFixed(2),(l.notes||'').replace(/"/g,'""')]));
       const csv=rows.map(r=> r.map(x=>`"${String(x)}"`).join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
       const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='locations.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),0);
     });
 
+    // ===== Prévisions init =====
+    function fillSimDefaults(){
+      const sel=$('simVehicule'); sel.innerHTML='';
+      vehicles.filter(v=>v.active).forEach(v=>{ const o=document.createElement('option'); o.value=v.id; o.textContent=v.name; sel.appendChild(o); });
+      $('simCommission').value=globals.commission; $('simWear').value=globals.wearPerKm;
+      if(!sel.value && vehicles.filter(v=>v.active)[0]) sel.value=vehicles.filter(v=>v.active)[0].id;
+    }
+
     // ===== Init =====
     function init(){
-      // Ensure Clio & Tesla exist once
       if(!vehicles.find(v=>v.id==='clio')) vehicles.push({ id:'clio', name:'Clio', active:true, costs:{ass:56,conn:25,ent:45,totalInvested:11659,residual:0,amortMonths:60} });
       if(!vehicles.find(v=>v.id==='tesla')) vehicles.push({ id:'tesla', name:'Tesla', active:true, costs:{ass:115,conn:0,ent:30,totalInvested:0,residual:0,amortMonths:60} });
 
       renderVehiclesUI(); fillVehSelect(); fillFilters(); loadGlobals(); renderTable(); renderCharts(); fillSimDefaults();
-      showTab('vehicles');
+      showTab('suivi'); // t'emmène sur Suivi avec filtre véhicule actif
     }
     init();
   </script>
