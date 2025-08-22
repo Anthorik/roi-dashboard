@@ -94,7 +94,7 @@
           <tbody id="locTable"></tbody>
         </table>
       </div>
-      <p class="text-sm mt-2 hint">Net location = (prix × jours × (1–commission)) − usure(km×€/km) − frais divers + ajustement carburant.</p>
+      <p class="text-sm mt-2 hint">Net location = (prix × jours × (1–commission)) − (usure si activée) − frais divers + ajustement carburant.</p>
     </section>
 
     <!-- VEHICLES -->
@@ -111,9 +111,10 @@
       <h2 class="text-xl font-semibold mb-3">⚙️ Paramètres globaux</h2>
       <div class="grid-3">
         <div><label>Commission plateforme (%)</label><input type="number" id="commission" min="0" step="0.1" value="10"/></div>
-        <div><label>Usure €/km</label><input type="number" id="wearPerKm" min="0" step="0.01" value="0.12"/></div>
+        <div><label>Usure €/km (taux global)</label><input type="number" id="wearPerKm" min="0" step="0.01" value="0.12"/></div>
         <div><label>Km inclus / jour (info)</label><input type="number" id="kmInclus" min="0" step="1" value="100"/></div>
       </div>
+      <p class="mt-2 hint">L’usure/km utilise le taux ci-dessus, mais son application se règle <b>par véhicule</b> (switch “Usure/km activée” dans l’onglet Véhicules).</p>
       <div class="mt-4"><button class="btn" onclick="saveGlobals()">💾 Sauvegarder</button><span id="savedTag" class="ml-3 text-sm" style="color:var(--muted); display:none;">✔️ Sauvegardé</span></div>
     </section>
 
@@ -168,24 +169,25 @@
 
   <script>
     // ===== Storage & State =====
-    const KEY='roi_multi_v4_resid_split';
+    const KEY='roi_multi_v5_resid_split_wearperveh';
     const data = JSON.parse(localStorage.getItem(KEY) || '{}');
     const theme = data.theme || 'dark';
 
-    // Vehicles with residual value:
-    // {id, name, active, costs:{ass,conn,ent,totalInvested,residual,amortMonths}}
+    // Vehicles with residual value & per-vehicle wear switch:
+    // {id, name, active, costs:{ass,conn,ent,totalInvested,residual,amortMonths,useWear}}
     let vehicles = data.vehicles || [
-      { id:'clio',  name:'Clio',  active:true, costs:{ass:56, conn:25, ent:45, totalInvested:11659, residual:0, amortMonths:60} },
-      { id:'tesla', name:'Tesla', active:true, costs:{ass:115, conn:0,  ent:30, totalInvested:0,     residual:0, amortMonths:60} }
+      { id:'clio',  name:'Clio',  active:true, costs:{ass:56, conn:25, ent:45, totalInvested:11659, residual:0, amortMonths:60, useWear:false} },
+      { id:'tesla', name:'Tesla', active:true, costs:{ass:115, conn:0,  ent:30, totalInvested:0,     residual:0, amortMonths:60, useWear:false} }
     ];
     // Migrations
     vehicles = vehicles.map(v=>{
       const c=v.costs||{};
       if(c.totalInvested===undefined){
         const total = (c.acqTotal||0) + (c.amort? (c.amort*(c.acqMonths||60)) : 0);
-        return { ...v, costs:{ ass:c.ass||0, conn:c.conn||0, ent:c.ent||0, totalInvested: total||0, residual:0, amortMonths: c.acqMonths||60 } };
+        v.costs = { ass:c.ass||0, conn:c.conn||0, ent:c.ent||0, totalInvested: total||0, residual:0, amortMonths: c.acqMonths||60, useWear:false };
       }
-      if(c.residual===undefined){ c.residual=0; }
+      if(c.residual===undefined) v.costs.residual=0;
+      if(c.useWear===undefined)  v.costs.useWear=false;
       return v;
     });
 
@@ -240,7 +242,7 @@
         active.forEach(v=>{ const o=document.createElement('option'); o.value=v.id; o.textContent=v.name; el.appendChild(o); });
       });
 
-      // Défaut de suivi: premier véhicule actif (évite l’addition involontaire)
+      // Default suivi: premier véhicule actif
       const sel=$('suiviVehicule');
       const firstActive = vehicles.find(v=>v.active);
       if(firstActive && (!sel.dataset.setOnce || sel.value==='ALL')){
@@ -274,6 +276,12 @@
             <div><label>Formule</label><input type="text" value="(Total – Résiduelle) ÷ Mois" disabled/></div>
             <div><label>Résultat</label><input type="text" value="${amort.toFixed(2)} €/mois" disabled/></div>
           </div>
+          <div class="mt-2">
+            <label class="toggle">
+              <span class="hint">Usure/km activée (utilise le coût/km global)</span>
+              <input type="checkbox" ${c.useWear ? 'checked' : ''} data-id="${v.id}" class="veh-usewear"/>
+            </label>
+          </div>
           <div class="mt-3 flex gap-2">
             <button class="btn" onclick="saveVehicles()">💾 Sauvegarder</button>
             <button class="btn-ghost" onclick="removeVehicle('${v.id}')">Supprimer</button>
@@ -290,10 +298,11 @@
       wrap.querySelectorAll('.veh-total').forEach(i=> i.oninput = e=>{ const v=vehicleById(e.target.dataset.id); if(v){ v.costs.totalInvested=Number(e.target.value||0); saveAll(); renderVehiclesUI(); renderCharts(); }});
       wrap.querySelectorAll('.veh-resid').forEach(i=> i.oninput = e=>{ const v=vehicleById(e.target.dataset.id); if(v){ v.costs.residual=Number(e.target.value||0); saveAll(); renderVehiclesUI(); renderCharts(); }});
       wrap.querySelectorAll('.veh-months').forEach(i=> i.oninput = e=>{ const v=vehicleById(e.target.dataset.id); if(v){ v.costs.amortMonths=Math.max(1,Number(e.target.value||1)); saveAll(); renderVehiclesUI(); renderCharts(); }});
+      wrap.querySelectorAll('.veh-usewear').forEach(i=> i.onchange = e=>{ const v=vehicleById(e.target.dataset.id); if(v){ v.costs.useWear=e.target.checked; saveAll(); renderCharts(); }});
     }
     function addVehicle(){
       const id='veh_'+Math.random().toString(36).slice(2,8);
-      vehicles.push({ id, name:'Nouveau véhicule', active:true, costs:{ass:0,conn:0,ent:0,totalInvested:0,residual:0,amortMonths:60} });
+      vehicles.push({ id, name:'Nouveau véhicule', active:true, costs:{ass:0,conn:0,ent:0,totalInvested:0,residual:0,amortMonths:60,useWear:false} });
       saveAll(); renderVehiclesUI(); renderTable(); renderCharts(); fillSimDefaults();
     }
     function removeVehicle(id){
@@ -347,7 +356,9 @@
     function netLocation(l){
       const com=(globals.commission||0)/100;
       const after=(l.prixJour*(l.jours||1))*(1-com);
-      const wear=(l.kms||0)*(globals.wearPerKm||0);
+      const v = vehicleById(l.vehiculeId);
+      const wearRate = (globals.wearPerKm||0);
+      const wear = (v?.costs?.useWear ? ((l.kms||0) * wearRate) : 0);
       return after - wear - (l.extras||0) + (l.fuelAdj||0);
     }
 
@@ -403,11 +414,13 @@
       const com=commission/100, fixed=fixedCostsMonthly(veh);
       const seasonCurve=[0.85,0.80,0.90,1.00,1.05,1.15,1.25,1.20,1.00,0.95,0.85,0.90];
       const shownPrice = price/(1-com);
-      const monthlyGross=price*days, after=monthlyGross*(1-com), wear=(kmday*days)*wearPerKm;
+      const monthlyGross=price*days, after=monthlyGross*(1-com);
+      const useWear = !!veh?.costs?.useWear;
+      const wearMonthly = useWear ? (kmday*days)*wearPerKm : 0;
 
       $('simSummary').innerHTML=`
         <div class="card"><div class="text-sm hint">Prix proprio / Prix affiché estimé</div><div class="text-xl font-extrabold">${euro(price)} / ${euro(shownPrice)}</div></div>
-        <div class="card"><div class="text-sm hint">Après com – Usure</div><div class="text-xl font-extrabold">${euro(after)} – ${euro(wear)}</div></div>
+        <div class="card"><div class="text-sm hint">Après com – ${useWear?'Usure':'Usure ignorée'}</div><div class="text-xl font-extrabold">${euro(after)} – ${euro(wearMonthly)}</div></div>
         <div class="card"><div class="text-sm hint">Fixes mensuels (${veh.name})</div><div class="text-xl font-extrabold">-${euro(fixed)}</div><div class="text-xs hint">(incl. amort. basé sur Total – Résiduelle)</div></div>
       `;
 
@@ -415,7 +428,9 @@
       const labels=['01','02','03','04','05','06','07','08','09','10','11','12']; const dataBar=[];
       labels.forEach((m,i)=>{
         const factor=seasonCurve[i]*seasonBase;
-        const g=monthlyGross*factor, a=g*(1-com), w=(kmday*days)*wearPerKm*factor, n=a-w-fixed;
+        const g=monthlyGross*factor, a=g*(1-com);
+        const w = useWear ? (kmday*days)*wearPerKm*factor : 0;
+        const n=a-w-fixed;
         dataBar.push(n);
         const tr=document.createElement('tr'); tr.innerHTML=`<td>${m}</td><td>${euro(g)}</td><td>${euro(a)}</td><td>${euro(w)}</td><td>${euro(fixed)}</td><td><b>${euro(n)}</b></td>`; tbody.appendChild(tr);
       });
@@ -430,7 +445,7 @@
       const wi=[{lbl:'+2j', d:days+2,p:price},{lbl:'-2j',d:Math.max(0,days-2),p:price},{lbl:'+5€',d:days,p:price+5},{lbl:'-5€',d:days,p:Math.max(0,price-5)},{lbl:'+2j & +5€',d:days+2,p:price+5}];
       const wrap=$('simWhatIf'); wrap.innerHTML='';
       wi.forEach(s=>{
-        const g=s.p*s.d,a=g*(1-com),w=(kmday*s.d)*wearPerKm,n=a-w-fixed;
+        const g=s.p*s.d,a=g*(1-com),w=(useWear?(kmday*s.d)*wearPerKm:0),n=a-w-fixed;
         const c=document.createElement('div'); c.className='card';
         c.innerHTML=`<div class="text-sm hint">${s.lbl}</div><div class="text-lg font-extrabold">${euro(n)}</div><div class="text-xs hint">CA ${euro(g)} · Après com ${euro(a)} · Usure ${euro(w)}</div>`;
         wrap.appendChild(c);
@@ -445,7 +460,6 @@
       const active = vehicles.filter(v=>v.active);
       const optAll=document.createElement('option'); optAll.value='ALL'; optAll.textContent='Tous véhicules'; sel.appendChild(optAll);
       active.forEach(v=>{ const o=document.createElement('option'); o.value=v.id; o.textContent=v.name; sel.appendChild(o); });
-      // garder valeur si déjà choisie
       if(!sel.value || (!sel.dataset.setOnce && active[0])){ sel.value = active[0]?.id || 'ALL'; sel.dataset.setOnce='1'; }
 
       const vehF=sel.value;
@@ -554,7 +568,7 @@
       const r=new FileReader(); r.onload=()=>{ try{
         const d=JSON.parse(r.result);
         if(d.theme){ themeToggle.checked=(d.theme==='light'); applyTheme(); }
-        if(Array.isArray(d.vehicles)) vehicles=d.vehicles.map(v=> ({...v, costs:{...v.costs, residual: v.costs?.residual ?? 0}}));
+        if(Array.isArray(d.vehicles)) vehicles=d.vehicles.map(v=> ({...v, costs:{...v.costs, residual: v.costs?.residual ?? 0, useWear: v.costs?.useWear ?? false}}));
         if(d.globals) globals=d.globals;
         if(Array.isArray(d.locations)) locations=d.locations;
         saveAll(); renderVehiclesUI(); fillVehSelect(); fillFilters(); renderTable(); renderCharts(); fillSimDefaults(); alert('Import réussi ✅');
@@ -577,11 +591,11 @@
 
     // ===== Init =====
     function init(){
-      if(!vehicles.find(v=>v.id==='clio')) vehicles.push({ id:'clio', name:'Clio', active:true, costs:{ass:56,conn:25,ent:45,totalInvested:11659,residual:0,amortMonths:60} });
-      if(!vehicles.find(v=>v.id==='tesla')) vehicles.push({ id:'tesla', name:'Tesla', active:true, costs:{ass:115,conn:0,ent:30,totalInvested:0,residual:0,amortMonths:60} });
+      if(!vehicles.find(v=>v.id==='clio')) vehicles.push({ id:'clio', name:'Clio', active:true, costs:{ass:56,conn:25,ent:45,totalInvested:11659,residual:0,amortMonths:60,useWear:false} });
+      if(!vehicles.find(v=>v.id==='tesla')) vehicles.push({ id:'tesla', name:'Tesla', active:true, costs:{ass:115,conn:0,ent:30,totalInvested:0,residual:0,amortMonths:60,useWear:false} });
 
       renderVehiclesUI(); fillVehSelect(); fillFilters(); loadGlobals(); renderTable(); renderCharts(); fillSimDefaults();
-      showTab('suivi'); // t'emmène sur Suivi avec filtre véhicule actif
+      showTab('suivi'); // démarrage sur le Suivi
     }
     init();
   </script>
